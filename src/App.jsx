@@ -1,9 +1,14 @@
-import { Route, Routes } from 'react-router-dom';
+import { Route, Routes, Navigate } from 'react-router-dom';
 import Footer from './components/Footer';
 import Header from './components/Header';
 import HomePage from './pages/HomePage';
 import NotFoundPage from './pages/NotFoundPage';
 import ShiftManagerPage from './pages/ShiftManagerPage';
+import ShiftCreationPage from './pages/shift/ShiftCreationPage';
+import ShiftCalendarPage from './pages/shift/ShiftCalendarPage';
+import WorkerRegistrationPage from './pages/shift/WorkerRegistrationPage';
+import WorkerHolidaySettingsPage from './pages/shift/WorkerHolidaySettingsPage';
+import OfficeHolidaySettingsPage from './pages/shift/OfficeHolidaySettingsPage';
 import SalesPage from './pages/SalesPage';
 import InventoryPage from './pages/InventoryPage';
 import OrderingPage from './pages/OrderingPage';
@@ -33,7 +38,14 @@ function App() {
             <Route path="/collection" element={<CollectionPage />} />
             <Route path="/reporting" element={<ReportingPage />} />
             <Route path="/stocktaking" element={<StocktakingPage />} />
-            <Route path="/shift-manager" element={<ShiftManagerPage />} />
+            <Route path="/shift-manager" element={<ShiftManagerPage />}>
+              <Route index element={<Navigate to="calendar" replace />} />
+              <Route path="calendar" element={<ShiftCalendarPage />} />
+              <Route path="creation" element={<ShiftCreationPage />} />
+              <Route path="registration" element={<WorkerRegistrationPage />} />
+              <Route path="worker-holiday" element={<WorkerHolidaySettingsPage />} />
+              <Route path="office-holiday" element={<OfficeHolidaySettingsPage />} />
+            </Route>
             <Route path="/product-settings" element={<ProductSettingsPage />} />
             <Route path="/equipment-settings" element={<EquipmentSettingsPage />} />
             <Route path="/manual-settings" element={<ManualSettingsPage />} />
