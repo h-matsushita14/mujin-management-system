@@ -1,8 +1,10 @@
 import React from 'react';
-import { AppBar, Toolbar, Typography, Box, IconButton, Button, Drawer, List, ListItemButton, ListItemText, useMediaQuery, useTheme, ListItemIcon } from '@mui/material';
+import { AppBar, Toolbar, Typography, Box, IconButton, Button, Drawer, List, ListItemButton, ListItemText, useMediaQuery, useTheme, ListItemIcon, Menu, MenuItem, Collapse } from '@mui/material';
 import { Link } from 'react-router-dom';
 import MenuIcon from '@mui/icons-material/Menu';
 import SettingsIcon from '@mui/icons-material/Settings';
+import ExpandLess from '@mui/icons-material/ExpandLess';
+import ExpandMore from '@mui/icons-material/ExpandMore';
 
 // Import all icons used in HomePage.jsx
 import EditCalendarIcon from '@mui/icons-material/EditCalendar';
@@ -59,13 +61,42 @@ const menuItems = [
   },
 ];
 
+const settingsMenuItems = [
+  {
+    title: '取扱商品設定',
+    path: '/product-settings',
+  },
+  {
+    title: '備品設定',
+    path: '/equipment-settings',
+  },
+  {
+    title: 'マニュアルのURL設定',
+    path: '/manual-settings',
+  }
+];
+
 function Header() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md')); // 'md' breakpoint for mobile
   const [drawerOpen, setDrawerOpen] = React.useState(false);
+  const [anchorEl, setAnchorEl] = React.useState(null);
+  const [settingsOpen, setSettingsOpen] = React.useState(false);
 
   const handleDrawerToggle = () => {
     setDrawerOpen(!drawerOpen);
+  };
+
+  const handleMenu = (event) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleClose = () => {
+    setAnchorEl(null);
+  };
+
+  const handleSettingsClick = () => {
+    setSettingsOpen(!settingsOpen);
   };
 
   return (
@@ -113,14 +144,37 @@ function Header() {
 
         {/* Settings Icon - Rightmost */}
         {!isMobile && (
-          <IconButton
-            color="inherit"
-            aria-label="settings"
-            sx={{ ml: 'auto' }}
-            component={Link} to="/settings"
-          >
-            <SettingsIcon />
-          </IconButton>
+          <div>
+            <IconButton
+              color="inherit"
+              aria-label="settings"
+              sx={{ ml: 'auto' }}
+              onClick={handleMenu}
+            >
+              <SettingsIcon />
+            </IconButton>
+            <Menu
+              id="menu-appbar"
+              anchorEl={anchorEl}
+              anchorOrigin={{
+                vertical: 'top',
+                horizontal: 'right',
+              }}
+              keepMounted
+              transformOrigin={{
+                vertical: 'top',
+                horizontal: 'right',
+              }}
+              open={Boolean(anchorEl)}
+              onClose={handleClose}
+            >
+              {settingsMenuItems.map((item) => (
+                <MenuItem key={item.title} onClick={handleClose} component={Link} to={item.path}>
+                  {item.title}
+                </MenuItem>
+              ))}
+            </Menu>
+          </div>
         )}
       </Toolbar>
 
@@ -133,25 +187,32 @@ function Header() {
         <Box
           sx={{ width: 250 }}
           role="presentation"
-          onClick={handleDrawerToggle}
-          onKeyDown={handleDrawerToggle}
         >
           <List>
             {menuItems.map((item) => (
-              <ListItemButton key={item.title} component={Link} to={item.path}>
+              <ListItemButton key={item.title} component={Link} to={item.path} onClick={handleDrawerToggle}>
                 <ListItemIcon>
                   {item.icon}
                 </ListItemIcon>
                 <ListItemText primary={item.title} />
               </ListItemButton>
             ))}
-            {/* Settings Icon at the bottom of Hamburger Menu */}
-            <ListItemButton component={Link} to="/settings">
+            <ListItemButton onClick={handleSettingsClick}>
               <ListItemIcon>
                 <SettingsIcon />
               </ListItemIcon>
               <ListItemText primary="設定" />
+              {settingsOpen ? <ExpandLess /> : <ExpandMore />}
             </ListItemButton>
+            <Collapse in={settingsOpen} timeout="auto" unmountOnExit>
+              <List component="div" disablePadding>
+                {settingsMenuItems.map((item) => (
+                  <ListItemButton key={item.title} component={Link} to={item.path} sx={{ pl: 4 }} onClick={handleDrawerToggle}>
+                    <ListItemText primary={item.title} />
+                  </ListItemButton>
+                ))}
+              </List>
+            </Collapse>
           </List>
         </Box>
       </Drawer>

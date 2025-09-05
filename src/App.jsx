@@ -6,32 +6,43 @@ import NotFoundPage from './pages/NotFoundPage';
 import ShiftManagerPage from './pages/ShiftManagerPage';
 import SalesPage from './pages/SalesPage';
 import InventoryPage from './pages/InventoryPage';
-import OrderingPage from './pages/OrderingPage'; // New import
-import DeliveryPage from './pages/DeliveryPage'; // New import
-import CollectionPage from './pages/CollectionPage'; // New import
-import ReportingPage from './pages/ReportingPage'; // New import
-import StocktakingPage from './pages/StocktakingPage'; // New import
+import OrderingPage from './pages/OrderingPage';
+import DeliveryPage from './pages/DeliveryPage';
+import CollectionPage from './pages/CollectionPage';
+import ReportingPage from './pages/ReportingPage';
+import StocktakingPage from './pages/StocktakingPage';
+import ProductSettingsPage from './pages/ProductSettingsPage';
+import EquipmentSettingsPage from './pages/EquipmentSettingsPage';
+import ManualSettingsPage from './pages/ManualSettingsPage';
+import ManualsPage from './pages/ManualsPage';
+import { ManualProvider } from './context/ManualContext';
 import './App.css';
 
 function App() {
   return (
     <div className="App">
-      <Header />
-      <main>
-        <Routes>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/sales" element={<SalesPage />} />
-          <Route path="/inventory" element={<InventoryPage />} />
-          <Route path="/ordering" element={<OrderingPage />} /> {/* New route */}
-          <Route path="/delivery" element={<DeliveryPage />} /> {/* New route */}
-          <Route path="/collection" element={<CollectionPage />} /> {/* New route */}
-          <Route path="/reporting" element={<ReportingPage />} /> {/* New route */}
-          <Route path="/stocktaking" element={<StocktakingPage />} /> {/* New route */}
-          <Route path="/shift-manager" element={<ShiftManagerPage />} />
-          <Route path="*" element={<NotFoundPage />} />
-        </Routes>
-      </main>
-      <Footer />
+      <ManualProvider>
+        <Header />
+        <main>
+          <Routes>
+            <Route path="/" element={<HomePage />} />
+            <Route path="/sales" element={<SalesPage />} />
+            <Route path="/inventory" element={<InventoryPage />} />
+            <Route path="/ordering" element={<OrderingPage />} />
+            <Route path="/delivery" element={<DeliveryPage />} />
+            <Route path="/collection" element={<CollectionPage />} />
+            <Route path="/reporting" element={<ReportingPage />} />
+            <Route path="/stocktaking" element={<StocktakingPage />} />
+            <Route path="/shift-manager" element={<ShiftManagerPage />} />
+            <Route path="/product-settings" element={<ProductSettingsPage />} />
+            <Route path="/equipment-settings" element={<EquipmentSettingsPage />} />
+            <Route path="/manual-settings" element={<ManualSettingsPage />} />
+            <Route path="/manuals" element={<ManualsPage />} />
+            <Route path="*" element={<NotFoundPage />} />
+          </Routes>
+        </main>
+        <Footer />
+      </ManualProvider>
     </div>
   );
 }
