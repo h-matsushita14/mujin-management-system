@@ -60,6 +60,41 @@ function getSheetData(fileId, sheetName) {
 }
 
 /**
+ * 実在庫マスターから、基準日以前の最新の実在庫数を集計します。
+ * @param {string} actualSheetId 実在庫マスターのファイルID。
+ * @param {string} actualSheetName 実在庫マスターのシート名。
+ * @param {string} baseDateYMD 基準日（'yyyy-MM-dd'形式）。
+ * @returns {{actualStock: Object<string, number>, actualDate: Object<string, Date>}} 実在庫数と日付のマップ。
+ */
+function getLatestActualStock(actualSheetId, actualSheetName, baseDateYMD) {
+  const actualData = getSheetData(actualSheetId, actualSheetName);
+  if (!actualData) return { actualStock: {}, actualDate: {} };
+
+  const actualHeaderMap = {};
+  actualData[0].forEach((h, i) => actualHeaderMap[normalize(h)] = i);
+
+  const actualStock = {};
+  const actualDate = {};
+
+  for (let i = 1; i < actualData.length; i++) {
+    const row = actualData[i];
+    const code = normalize(row[actualHeaderMap["商品コード"]]);
+    const qty = Number(row[actualHeaderMap["実在庫数"]]) || 0;
+    const timestamp = new Date(row[actualHeaderMap["タイムスタンプ"]]);
+    const ymd = formatDateToYMD(timestamp);
+
+    if (code && ymd <= baseDateYMD) {
+      // 同じ商品コードで、より新しいタイムスタンプの実在庫数に更新
+      if (!actualDate[code] || actualDate[code].getTime() < timestamp.getTime()) {
+        actualStock[code] = qty;
+        actualDate[code] = timestamp;
+      }
+    }
+  }
+  return { actualStock, actualDate };
+}
+
+/**
  * 在庫_一覧シートを、マスターデータに基づいて更新するメイン関数です。
  * 同じ日に実行された場合、既存のデータを上書きします。
  */
@@ -166,16 +201,19 @@ function update在庫数_fromマスター群() {
  * @returns {{calculatedInventories: Object<string, {inventory: number, baseDate: Date|null, latestSalesDate: Date|null}>, productInfoMap: Object<string, {productName: string, netDoAProductCode: string, shelfLifeDays: number}>}} 計算結果と商品情報のマップ。
  */
 function calculateInventoryBasedOnNewLogic() {
-  const today = new Date();
+  const today = new Date(); // 今日の日付
+
+  // 既存のユーティリティ関数を再利用
+  // getSheetData, formatDateToYMD, normalize は コード.js に存在すると仮定
 
   // 1. 全てのマスターデータを取得
   const actualData = getSheetData(CONFIG.actualStockSheetId, CONFIG.actualStockSheetName);
   const deliveryData = getSheetData(CONFIG.deliverySheetId, CONFIG.deliverySheetName);
   const salesData = getSheetData(CONFIG.salesSheetId, CONFIG.salesSheetName);
   const recoveryData = getSheetData(CONFIG.recoverySheetId, CONFIG.recoverySheetName);
-  const productMasterData = getSheetData(CONFIG.productMasterSheetId, CONFIG.productMasterSheetName);
+  const productMasterData = getSheetData(CONFIG.productMasterSheetId, CONFIG.productMasterSheetName); // New
 
-  if (!actualData || !deliveryData || !salesData || !recoveryData || !productMasterData) {
+  if (!actualData || !deliveryData || !salesData || !recoveryData || !productMasterData) { // Updated condition
     Logger.log("必要なマスターデータの一部または全てが取得できませんでした。");
     return {};
   }
@@ -193,14 +231,14 @@ function calculateInventoryBasedOnNewLogic() {
   const recoveryHeaderMap = {};
   recoveryData[0].forEach((h, i) => recoveryHeaderMap[normalize(h)] = i);
 
-  const productMasterHeaderMap = {};
-  productMasterData[0].forEach((h, i) => productMasterHeaderMap[normalize(h)] = i);
+  const productMasterHeaderMap = {}; // New
+  productMasterData[0].forEach((h, i) => productMasterHeaderMap[normalize(h)] = i); // New
 
   // 商品マスターから商品情報を取得
   const productInfoMap = {};
-  const inventoryManagementCol = productMasterHeaderMap["在庫管理"];
-  const standardStockCol = productMasterHeaderMap["基準在庫"];
-  const alertDaysCol = productMasterHeaderMap["アラート日数"];
+  const inventoryManagementCol = productMasterHeaderMap["在庫管理"]; // Get the index of '在庫管理' column
+  const standardStockCol = productMasterHeaderMap["基準在庫"]; // New: Get index for 基準在庫
+  const alertDaysCol = productMasterHeaderMap["アラート日数"]; // New: Get index for アラート日数
 
   productMasterData.slice(1).forEach(row => {
     const code = normalize(row[productMasterHeaderMap["商品コード"]]);
@@ -211,32 +249,56 @@ function calculateInventoryBasedOnNewLogic() {
         productName: row[productMasterHeaderMap["商品名"]],
         netDoAProductCode: row[productMasterHeaderMap["netDoA商品コード"]],
         shelfLifeDays: row[productMasterHeaderMap["賞味期限（日数）"]],
-        standardStock: Number(row[standardStockCol]) || 0,
-        alertDays: Number(row[alertDaysCol]) || 0,
+        standardStock: Number(row[standardStockCol]) || 0, // New: 基準在庫
+        alertDays: Number(row[alertDaysCol]) || 0, // New: アラート日数
       };
     }
   });
 
-  // 在庫管理「有」の商品コードのみを対象とする
-  const managedProductCodes = new Set(Object.keys(productInfoMap));
-  Logger.log(`Managed Product Codes (count): ${managedProductCodes.size}`);
+  // 全ての商品コードを収集 (商品マスターからも収集)
+  const managedProductCodes = new Set();
+  productMasterData.slice(1).forEach(row => {
+    const inventoryManagement = normalize(row[productMasterHeaderMap["在庫管理"]]);
+    if (inventoryManagement === "有") {
+      managedProductCodes.add(normalize(row[productMasterHeaderMap["商品コード"]]));
+    }
+  });
+  Logger.log(`Managed Product Codes (count): ${managedProductCodes.size}`); // LOG
+  // Logger.log(`Managed Product Codes: ${Array.from(managedProductCodes).join(', ')}`); // Uncomment for full list if needed
 
   const allProductCodes = new Set();
-  const addCodeIfExists = (data, headerMap, codeHeader) => {
-    data.slice(1).forEach(row => {
-      const code = normalize(row[headerMap[codeHeader]]);
-      if (managedProductCodes.has(code)) {
-        allProductCodes.add(code);
-      }
-    });
-  };
-
-  addCodeIfExists(actualData, actualHeaderMap, "商品コード");
-  addCodeIfExists(deliveryData, deliveryHeaderMap, "商品コード");
-  addCodeIfExists(salesData, salesHeaderMap, "商品コード");
-  addCodeIfExists(recoveryData, recoveryHeaderMap, "商品コード");
+  actualData.slice(1).forEach(row => {
+    const code = normalize(row[actualHeaderMap["商品コード"]]);
+    if (managedProductCodes.has(code)) {
+      allProductCodes.add(code);
+      // Logger.log(`Adding from actualData: ${code}`); // LOG
+    }
+  });
+  deliveryData.slice(1).forEach(row => {
+    const code = normalize(row[deliveryHeaderMap["商品コード"]]);
+    if (managedProductCodes.has(code)) {
+      allProductCodes.add(code);
+      // Logger.log(`Adding from deliveryData: ${code}`); // LOG
+    }
+  });
+  salesData.slice(1).forEach(row => {
+    const code = normalize(row[salesHeaderMap["商品コード"]]);
+    if (managedProductCodes.has(code)) {
+      allProductCodes.add(code);
+      // Logger.log(`Adding from salesData: ${code}`); // LOG
+    }
+  });
+  recoveryData.slice(1).forEach(row => {
+    const code = normalize(row[recoveryHeaderMap["商品コード"]]);
+    if (managedProductCodes.has(code)) {
+      allProductCodes.add(code);
+      // Logger.log(`Adding from recoveryData: ${code}`); // LOG
+    }
+  });
+  // Add product codes from productMasterData that are managed
   managedProductCodes.forEach(code => allProductCodes.add(code));
-  Logger.log(`Final All Product Codes (count): ${allProductCodes.size}`);
+  Logger.log(`Final All Product Codes (count): ${allProductCodes.size}`); // LOG
+  // Logger.log(`Final All Product Codes: ${Array.from(allProductCodes).join(', ')}`); // Uncomment for full list if needed
 
   const currentInventoryResults = {};
 
@@ -274,9 +336,10 @@ function calculateInventoryBasedOnNewLogic() {
       }
     }
 
+    // baseDate が設定されていない場合（実在庫も納品も無い場合）、全てのトランザクションを考慮しない
     if (!baseDate) {
       currentInventoryResults[productCode] = { inventory: 0, baseDate: null, latestSalesDate: null };
-      return;
+      return; // 次の商品へ
     }
 
     // 4. 基準日以降のトランザクションを集計
@@ -307,7 +370,7 @@ function calculateInventoryBasedOnNewLogic() {
         }
       });
 
-    let latestSalesDate = null;
+    // Calculate latest sales date for this product
     let latestSalesEntry = null;
     salesData.slice(1).filter(row => normalize(row[salesHeaderMap["商品コード"]]) === productCode)
       .forEach(row => {
@@ -329,6 +392,7 @@ function calculateInventoryBasedOnNewLogic() {
       inventoryRatio = (currentInventory / productMasterInfo.standardStock) * 100;
     }
 
+    // Call the new helper function for oldest valid expiration date
     const oldestExpirationDate = getOldestValidExpirationDate(
       productCode,
       deliveryData,
@@ -340,7 +404,7 @@ function calculateInventoryBasedOnNewLogic() {
     let daysUntilSalePossible = null;
     if (oldestExpirationDate && productMasterInfo) {
       const diffTime = oldestExpirationDate.getTime() - today.getTime();
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); // Days remaining
       daysUntilSalePossible = diffDays - productMasterInfo.alertDays;
     }
 
@@ -348,16 +412,16 @@ function calculateInventoryBasedOnNewLogic() {
       inventory: currentInventory,
       baseDate: baseDate,
       latestSalesDate: latestSalesDate,
-      inventoryRatio: inventoryRatio,
-      oldestExpirationDate: oldestExpirationDate,
-      daysUntilSalePossible: daysUntilSalePossible,
+      inventoryRatio: inventoryRatio, // New: 在庫割合
+      oldestExpirationDate: oldestExpirationDate, // New: 最も古い有効な賞味期限
+      daysUntilSalePossible: daysUntilSalePossible, // New: 販売可能日数
     };
   });
 
   return {
     calculatedInventories: currentInventoryResults,
     productInfoMap: productInfoMap,
-    scriptExecutionDate: today
+    scriptExecutionDate: today // Add script execution date
   };
 }
 
@@ -371,8 +435,8 @@ function calculateInventoryBasedOnNewLogic() {
  * @returns {Date|null} 最も古い賞味期限、またはnull
  */
 function getOldestValidExpirationDate(productCode, deliveryData, deliveryHeaderMap, recoveryData, recoveryHeaderMap) {
-  const deliveryExpirationCol = deliveryHeaderMap["賞味期限"];
-  const recoveryExpirationCol = recoveryHeaderMap["賞味期限"];
+  const deliveryExpirationCol = deliveryHeaderMap["賞味期限"]; // Assuming "賞味期限" header in Delivery Master
+  const recoveryExpirationCol = recoveryHeaderMap["賞味期限"]; // Assuming "賞味期限" header in Recovery Master
 
   if (deliveryExpirationCol === undefined || recoveryExpirationCol === undefined) {
     Logger.log("Warning: 賞味期限 header not found in Delivery or Recovery Master.");
@@ -399,6 +463,7 @@ function getOldestValidExpirationDate(productCode, deliveryData, deliveryHeaderM
         const currentExpDate = new Date(expDateValue);
         const currentExpDateYMD = formatDateToYMD(currentExpDate);
 
+        // 回収マスターにない賞味期限のみを考慮
         if (!recoveredExpirationDates.has(currentExpDateYMD)) {
           if (!oldestExpirationDate || currentExpDate.getTime() < oldestExpirationDate.getTime()) {
             oldestExpirationDate = currentExpDate;
@@ -410,193 +475,63 @@ function getOldestValidExpirationDate(productCode, deliveryData, deliveryHeaderM
 }
 
 /**
- * WebアプリからのGETリクエストを処理するメイン関数。
- * pageパラメータに応じて、異なるデータをJSON形式で返します。
- * @param {Object} e - Apps Scriptのイベントオブジェクト。
- * @returns {ContentService.TextOutput} JSON形式のテキスト出力。
+ * WebアプリからのGETリクエストを処理します。
+ * @param {GoogleAppsScript.Events.DoGet} e イベントオブジェクト。
+ * @returns {GoogleAppsScript.Content.TextOutput} JSON形式のレスポンス。
  */
 function doGet(e) {
   try {
+    // Log the entire event object for debugging
+    Logger.log(`doGet received event object: ${JSON.stringify(e)}`);
+
+    // Check if e or e.parameter is undefined
+    if (!e || !e.parameter) {
+      const errorMessage = 'Invalid request: Event object or its parameters are missing.';
+      Logger.log(`doGetエラー: ${errorMessage} Event object: ${JSON.stringify(e)}`);
+      const errorOutput = ContentService.createTextOutput(JSON.stringify({ success: false, error: errorMessage }));
+      errorOutput.setMimeType(ContentService.MimeType.JSON);
+      errorOutput.addHeader('Access-Control-Allow-Origin', '*');
+      errorOutput.addHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+      errorOutput.addHeader('Access-Control-Allow-Headers', 'Content-Type');
+      return errorOutput;
+    }
+
     const page = e.parameter.page;
-    let data;
+    let output;
 
-    switch (page) {
-      case 'inventory_latest':
-        data = getLatestInventory();
-        break;
-      case 'managed_products':
-        data = getManagedProducts();
-        break;
-      case 'inventory_history':
-        const productCode = e.parameter.productCode;
-        if (!productCode) {
-          throw new Error('productCodeパラメータが必要です。');
-        }
-        data = getInventoryHistory(productCode);
-        break;
-      case 'discrepancy_history':
-        data = getDiscrepancyHistory();
-        break;
-      default:
-        throw new Error('無効なpageパラメータです。');
+    if (page === 'inventory_latest') {
+      const { calculatedInventories } = calculateInventoryBasedOnNewLogic();
+      const inventoryArray = Object.keys(calculatedInventories).map(code => {
+        const item = calculatedInventories[code];
+        return {
+          '商品コード': code,
+          '在庫数': item.inventory,
+          '在庫割合': item.inventoryRatio !== null ? item.inventoryRatio.toFixed(2) + '%' : '',
+          '賞味期限': item.oldestExpirationDate ? formatDateToYMD(item.oldestExpirationDate) : '',
+          '販売可能日数': item.daysUntilSalePossible !== null ? item.daysUntilSalePossible : '',
+          '直近の実在庫確認日': item.baseDate ? formatDateToYMD(item.baseDate) : '',
+          '最終売上日': item.latestSalesDate ? formatDateToYMD(item.latestSalesDate) : '',
+        };
+      });
+      output = ContentService.createTextOutput(JSON.stringify({ success: true, data: inventoryArray }));
+    } else {
+      output = ContentService.createTextOutput(JSON.stringify({ success: false, error: 'Invalid page parameter' }));
     }
 
-    return ContentService
-      .createTextOutput(JSON.stringify({ success: true, data: data }))
-      .setMimeType(ContentService.MimeType.JSON);
+    // Set MIME type and add CORS headers
+    output.setMimeType(ContentService.MimeType.JSON)
+          .addHeader('Access-Control-Allow-Origin', '*') 
+          .addHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+          .addHeader('Access-Control-Allow-Headers', 'Content-Type');
 
+    return output;
   } catch (error) {
-    Logger.log(`doGet Error: ${error.message}`);
-    return ContentService
-      .createTextOutput(JSON.stringify({ success: false, error: error.message }))
-      .setMimeType(ContentService.MimeType.JSON);
+    Logger.log(`doGetエラー: ${error.message}\n${error.stack}`);
+    const errorOutput = ContentService.createTextOutput(JSON.stringify({ success: false, error: error.message }))
+          .setMimeType(ContentService.MimeType.JSON)
+          .addHeader('Access-Control-Allow-Origin', '*') // Also add to error response
+          .addHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+          .addHeader('Access-Control-Allow-Headers', 'Content-Type');
+    return errorOutput;
   }
-}
-
-/**
- * ヘッダー配列を{headerName: index}のマップに変換します。
- * @param {Array<string>} headers - ヘッダー行の配列。
- * @returns {Object} ヘッダー名と列インデックスのマップ。
- */
-function createHeaderMap(headers) {
-  const map = {};
-  headers.forEach((h, i) => {
-    if (h) map[normalize(h)] = i;
-  });
-  return map;
-}
-
-/**
- * 在庫_一覧シートから最新日付の在庫データを取得します。
- * @returns {Array<Object>} 最新の在庫データオブジェクトの配列。
- */
-function getLatestInventory() {
-  const sheet = SpreadsheetApp.openById(CONFIG.inventorySheetId).getSheetByName(CONFIG.inventorySheetName);
-  if (!sheet) throw new Error('在庫_一覧シートが見つかりません。');
-
-  const data = sheet.getDataRange().getValues();
-  if (data.length < 2) return []; // ヘッダーのみか空
-
-  const headers = data.shift(); // ヘッダー行を削除し、データ行のみにする
-  const headerMap = createHeaderMap(headers);
-  const dateCol = headerMap['日付'];
-  if (dateCol === undefined) throw new Error('在庫_一覧に「日付」列がありません。');
-
-  // 最新の日付を見つける
-  let latestDate = new Date(0);
-  data.forEach(row => {
-    const rowDate = new Date(row[dateCol]);
-    if (rowDate > latestDate) {
-      latestDate = rowDate;
-    }
-  });
-  const latestDateStr = formatDateToYMD(latestDate);
-
-  // 最新日付のデータのみをフィルタリング
-  const latestData = data.filter(row => formatDateToYMD(new Date(row[dateCol])) === latestDateStr);
-
-  // データをオブジェクトの配列に変換
-  return latestData.map(row => {
-    const rowObj = {};
-    headers.forEach((header, i) => {
-      rowObj[header] = row[i];
-    });
-    return rowObj;
-  });
-}
-
-/**
- * 商品マスターから在庫管理が「有」の商品リストを取得します。
- * @returns {Array<Object>} 商品オブジェクト（商品コード、商品名）の配列。
- */
-function getManagedProducts() {
-  const data = getSheetData(CONFIG.productMasterSheetId, CONFIG.productMasterSheetName);
-  if (!data || data.length < 2) return [];
-
-  const headers = data.shift();
-  const headerMap = createHeaderMap(headers);
-  const codeCol = headerMap['商品コード'];
-  const nameCol = headerMap['商品名'];
-  const mgmtCol = headerMap['在庫管理'];
-
-  if (codeCol === undefined || nameCol === undefined || mgmtCol === undefined) {
-    throw new Error('商品マスターのヘッダーが正しくありません（商品コード, 商品名, 在庫管理）。');
-  }
-
-  return data
-    .filter(row => row[mgmtCol] === '有')
-    .map(row => ({
-      productCode: row[codeCol],
-      productName: row[nameCol]
-    }));
-}
-
-/**
- * 特定商品の直近1ヶ月の在庫履歴を取得します。
- * @param {string} productCode - 商品コード。
- * @returns {Array<Object>} 在庫履歴オブジェクト（日付、在庫数）の配列。
- */
-function getInventoryHistory(productCode) {
-  const sheet = SpreadsheetApp.openById(CONFIG.inventorySheetId).getSheetByName(CONFIG.inventorySheetName);
-  if (!sheet) throw new Error('在庫_一覧シートが見つかりません。');
-  
-  const data = sheet.getDataRange().getValues();
-  if (data.length < 2) return [];
-
-  const headers = data.shift();
-  const headerMap = createHeaderMap(headers);
-  const codeCol = headerMap['商品コード'];
-  const dateCol = headerMap['日付'];
-  const stockCol = headerMap['在庫数'];
-
-  if (codeCol === undefined || dateCol === undefined || stockCol === undefined) {
-    throw new Error('在庫_一覧のヘッダーが正しくありません（商品コード, 日付, 在庫数）。');
-  }
-
-  const oneMonthAgo = new Date();
-  oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
-
-  return data
-    .filter(row => {
-      const rowCode = row[codeCol]?.toString().trim();
-      const rowDate = new Date(row[dateCol]);
-      return rowCode === productCode && rowDate >= oneMonthAgo;
-    })
-    .map(row => ({
-      date: formatDateToYMD(new Date(row[dateCol])),
-      stock: row[stockCol]
-    }))
-    .sort((a, b) => new Date(a.date) - new Date(b.date)); // 日付で昇順にソート
-}
-
-/**
- * 全商品の差異履歴を取得します。
- * @returns {Array<Object>} 差異履歴オブジェクトの配列。
- */
-function getDiscrepancyHistory() {
-  const sheet = SpreadsheetApp.openById(CONFIG.inventorySheetId).getSheetByName(CONFIG.inventorySheetName);
-  if (!sheet) throw new Error('在庫_一覧シートが見つかりません。');
-
-  const data = sheet.getDataRange().getValues();
-  if (data.length < 2) return [];
-
-  const headers = data.shift();
-  const headerMap = createHeaderMap(headers);
-  const codeCol = headerMap['商品コード'];
-  const nameCol = headerMap['商品名'];
-  const dateCol = headerMap['日付'];
-  const diffCol = headerMap['差異']; // Assuming '差異' is the header name
-
-  if (codeCol === undefined || nameCol === undefined || dateCol === undefined || diffCol === undefined) {
-    throw new Error('在庫_一覧のヘッダーが正しくありません（商品コード, 商品名, 日付, 差異）。');
-  }
-
-  return data
-    .filter(row => row[diffCol] !== '' && row[diffCol] != 0) // 差異が空でなく、0でもない
-    .map(row => ({
-      productCode: row[codeCol],
-      productName: row[nameCol],
-      date: formatDateToYMD(new Date(row[dateCol])),
-      difference: row[diffCol]
-    }));
 }

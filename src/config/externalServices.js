@@ -15,5 +15,12 @@ export const EXTERNAL_SERVICES = {
     },
     // Add other Google Sheets here
   },
-  // Add other external services here
+  gasApi: {
+    manuals: {
+      url: 'https://script.google.com/macros/s/AKfycbynn3c0bZJ8oRCp7n8nBnnu7LErMMp0-P_WwuJAn3zHnJKxy4c_gGvzneUaChvZtJBn/exec',
+    },
+    stockApp: {
+      url: 'https://script.google.com/macros/s/AKfycbzcm29NtPBqS_kJ5-S0nfJBYsyMGU91WFlwUdU7sDsB-QE-SdnF4HFpVIoh_Ra2CvON/exec',
+    },
+  },
 };

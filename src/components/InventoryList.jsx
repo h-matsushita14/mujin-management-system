@@ -10,7 +10,7 @@ const InventoryList = () => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const response = await fetch(`/api?page=inventory_latest`);
+        const response = await fetch(`/api?action=getInventoryData`);
         const result = await response.json();
         if (result.success) {
           setData(result.data);

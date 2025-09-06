@@ -1,5 +1,5 @@
 import React from 'react';
-import { AppBar, Toolbar, Typography, Box, IconButton, Button, Drawer, List, ListItemButton, ListItemText, useMediaQuery, useTheme, ListItemIcon, Menu, MenuItem, Collapse } from '@mui/material';
+import { AppBar, Toolbar, Typography, Box, IconButton, Button, Drawer, List, ListItemButton, ListItemText, useMediaQuery, useTheme, ListItemIcon, Menu, MenuItem, Collapse, Divider } from '@mui/material';
 import { Link } from 'react-router-dom';
 import MenuIcon from '@mui/icons-material/Menu';
 import SettingsIcon from '@mui/icons-material/Settings';
@@ -127,17 +127,21 @@ function Header() {
 
         {/* Desktop Menu Items */}
         {!isMobile && (
-          <Box sx={{ display: 'flex', ml: 2 }}>
-            {menuItems.map((item) => (
-              <Button
-                key={item.title}
-                color="inherit"
-                component={Link}
-                to={item.path}
-                startIcon={item.icon} // Add icon to desktop menu
-              >
-                {item.title}
-              </Button>
+          <Box sx={{ display: 'flex', alignItems: 'center', ml: 2 }}>
+            {menuItems.map((item, index) => (
+              <React.Fragment key={item.title}>
+                <Button
+                  color="inherit"
+                  component={Link}
+                  to={item.path}
+                  startIcon={item.icon}
+                >
+                  {item.title}
+                </Button>
+                {index < menuItems.length - 1 && (
+                  <Divider orientation="vertical" flexItem sx={{ mx: 1, my: 1.5, borderColor: 'rgba(255, 255, 255, 0.3)' }} />
+                )}
+              </React.Fragment>
             ))}
           </Box>
         )}
