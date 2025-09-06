@@ -11,6 +11,8 @@ exports.handler = async function(event, context) {
   const type = event.queryStringParameters.type || 'stock'; // Default to 'stock'
   const GAS_WEB_APP_URL = GAS_API_URLS[type];
 
+  console.log('GAS_WEB_APP_URL:', GAS_WEB_APP_URL); // Debug log
+
   if (!GAS_WEB_APP_URL) {
     return {
       statusCode: 500,
@@ -23,6 +25,8 @@ exports.handler = async function(event, context) {
     const queryString = new URLSearchParams(event.queryStringParameters).toString();
     const gasUrl = `${GAS_WEB_APP_URL}?${queryString}`;
 
+    console.log('Fetching from GAS URL:', gasUrl); // Debug log
+
     const response = await fetch(gasUrl, {
       method: 'GET', // doGetを呼び出すためGETを使用
       // headers: {
@@ -31,11 +35,15 @@ exports.handler = async function(event, context) {
       // },
     });
 
+    console.log('GAS response status:', response.status); // Debug log
+
     if (!response.ok) { // レスポンスがOKでない場合にエラーをスロー
       throw new Error(`GAS Web App responded with status ${response.status}: ${response.statusText}`);
     }
 
     const data = await response.json();
+
+    console.log('GAS response data:', data); // Debug log
 
     return {
       statusCode: 200,
