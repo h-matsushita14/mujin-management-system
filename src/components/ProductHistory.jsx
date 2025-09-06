@@ -23,11 +23,8 @@ const ProductHistory = () => {
         setLoadingProducts(true);
         const response = await fetch(`/.netlify/functions/gas-proxy?type=stock&page=managed_products`);
         const result = await response.json();
-        if (result.success) {
-          setProducts(result.data);
-        } else {
-          throw new Error(result.error || '商品リストの取得に失敗しました。');
-        }
+        // GASは直接商品リストの配列を返すように修正した
+        setProducts(result); // resultは直接配列
       } catch (e) {
         setError(e.message);
       } finally {

@@ -16,11 +16,8 @@ const DiscrepancyHistory = () => {
         setLoading(true);
         const response = await fetch(`/.netlify/functions/gas-proxy?page=discrepancy_history`);
         const result = await response.json();
-        if (result.success) {
-          setHistory(result.data);
-        } else {
-          throw new Error(result.error || '差異履歴の取得に失敗しました。');
-        }
+        // GASは直接差異履歴の配列を返すように修正した
+        setHistory(result); // resultは直接配列
       } catch (e) {
         setError(e.message);
       } finally {

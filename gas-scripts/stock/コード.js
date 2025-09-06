@@ -481,9 +481,36 @@ function getOldestValidExpirationDate(productCode, deliveryData, deliveryHeaderM
  */
 function doGet(e) {
   try {
-    const result = calculateInventoryBasedOnNewLogic();
-    return ContentService.createTextOutput(JSON.stringify(result))
-                         .setMimeType(ContentService.MimeType.JSON);
+    const page = e.parameter.page;
+
+    if (page === 'inventory_latest') {
+      const result = calculateInventoryBasedOnNewLogic();
+      return ContentService.createTextOutput(JSON.stringify(result))
+                           .setMimeType(ContentService.MimeType.JSON);
+    } else if (page === 'managed_products') {
+      const { productInfoMap } = calculateInventoryBasedOnNewLogic();
+      const managedProducts = Object.values(productInfoMap).map(info => ({
+        productCode: info.productCode, // Assuming productCode is part of productInfoMap values
+        productName: info.productName
+      }));
+      return ContentService.createTextOutput(JSON.stringify(managedProducts))
+                           .setMimeType(ContentService.MimeType.JSON);
+    } else if (page === 'inventory_history') {
+      // TODO: Implement inventory history logic
+      return ContentService.createTextOutput(JSON.stringify({ error: 'Inventory history not implemented' }))
+                           .setMimeType(ContentService.MimeType.JSON);
+    } else if (page === 'discrepancy_history') {
+      // 仮の差異履歴データを返す
+      const dummyDiscrepancyData = [
+        { "date": "2025-09-01", "productCode": "10001", "productName": "商品A", "difference": 5 },
+        { "date": "2025-09-02", "productCode": "10002", "productName": "商品B", "difference": -3 }
+      ];
+      return ContentService.createTextOutput(JSON.stringify(dummyDiscrepancyData))
+                           .setMimeType(ContentService.MimeType.JSON);
+    } else {
+      return ContentService.createTextOutput(JSON.stringify({ error: 'Invalid page parameter' }))
+                           .setMimeType(ContentService.MimeType.JSON);
+    }
   } catch (error) {
     Logger.log(`doGet error: ${error.message}\n${error.stack}`);
     return ContentService.createTextOutput(JSON.stringify({ success: false, error: `Error: ${error.message}` }))
