@@ -10,7 +10,7 @@ const InventoryList = () => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const response = await fetch(`/api?action=getInventoryData`);
+        const response = await fetch('/.netlify/functions/gas-proxy?page=inventory_latest');
         const result = await response.json();
         if (result.success) {
           setData(result.data);
