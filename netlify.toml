@@ -3,10 +3,7 @@
   command = "npm run build" # Your React build command
   publish = "dist" # The directory where your built React app is located (e.g., 'build' for Create React App)
 
-[[redirects]]
-  from = "/.netlify/functions/*"
-  to = "/.netlify/functions/:splat"
-  status = 200
+
 
 [functions]
   directory = "netlify/functions" # Directory where your Netlify Functions are located
