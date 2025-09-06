@@ -29,7 +29,9 @@ exports.handler = async function(event, context) {
       //   'Content-Type': 'application/json',
       //   // 必要に応じて追加のヘッダー
       // },
-    }); // Added closing brace here
+    });
+
+    if (!response.ok) { // レスポンスがOKでない場合にエラーをスロー
       throw new Error(`GAS Web App responded with status ${response.status}: ${response.statusText}`);
     }
 
