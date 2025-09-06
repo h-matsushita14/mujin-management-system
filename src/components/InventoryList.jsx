@@ -12,8 +12,11 @@ const InventoryList = () => {
         setLoading(true);
         const response = await fetch('/.netlify/functions/gas-proxy?page=inventory_latest');
         const result = await response.json();
-        if (result.success) {
-          setData(result.data);
+        // Netlify Functionsのログから、resultは直接データオブジェクトであることがわかる
+        // result.calculatedInventories が実際の在庫データ
+        if (result && result.calculatedInventories) {
+          // calculatedInventories はオブジェクトなので、配列に変換してsetData
+          setData(Object.values(result.calculatedInventories));
         } else {
           throw new Error(result.error || 'データの取得に失敗しました。');
         }
