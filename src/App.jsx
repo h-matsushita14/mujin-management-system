@@ -29,6 +29,7 @@ function App() {
       <ManualProvider>
         <Header />
         <main>
+          <Toolbar />
           <Routes>
             <Route path="/" element={<HomePage />} />
             <Route path="/sales" element={<SalesPage />} />

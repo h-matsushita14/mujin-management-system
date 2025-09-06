@@ -100,7 +100,7 @@ function Header() {
   };
 
   return (
-    <AppBar position="static">
+    <AppBar position="fixed">
       <Toolbar>
         {/* Application Title */}
         <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
