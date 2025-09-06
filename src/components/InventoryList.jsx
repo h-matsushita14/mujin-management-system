@@ -18,41 +18,107 @@ const InventoryList = () => {
   const [selectedDate, setSelectedDate] = useState(new Date()); // デフォルトは当日
   const [today] = useState(new Date()); // 当日の日付を固定
 
-  useEffect(() => {
-    const fetchData = async () => {
+  // Helper function to find a date with data
+  const findDateWithData = async (startDate, direction, maxAttempts = 30) => {
+    let currentDate = new Date(startDate);
+    for (let i = 0; i < maxAttempts; i++) {
+      const formattedDate = formatDate(currentDate);
       try {
-        setLoading(true);
-        const formattedDate = formatDate(selectedDate);
         const response = await fetch(`/.netlify/functions/gas-proxy?page=inventory_latest&date=${formattedDate}`);
         const result = await response.json();
-        // Netlify Functionsのログから、resultは直接データオブジェクトであることがわかる
-        // result.calculatedInventories が実際の在庫データ
-        if (result && result.calculatedInventories) {
-          // calculatedInventories はオブジェクトなので、配列に変換してsetData
-          setData(Object.values(result.calculatedInventories));
-        } else {
-          throw new Error(result.error || 'データの取得に失敗しました。');
+        if (result && result.calculatedInventories && Object.values(result.calculatedInventories).length > 0) {
+          return currentDate; // Found a date with data
         }
       } catch (e) {
+        console.error(`Error fetching data for ${formattedDate}:`, e);
+        // Continue searching even if there's an error for a specific date
+      }
+
+      // Move to the next/previous day
+      currentDate.setDate(currentDate.getDate() + direction);
+    }
+    return null; // No date with data found within maxAttempts
+  };
+
+  useEffect(() => {
+    const fetchData = async (dateToFetch) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const formattedDate = formatDate(dateToFetch);
+        const response = await fetch(`/.netlify/functions/gas-proxy?page=inventory_latest&date=${formattedDate}`);
+        const result = await response.json();
+
+        if (result && result.calculatedInventories) {
+          const inventories = Object.values(result.calculatedInventories);
+          if (inventories.length > 0) {
+            setData(inventories);
+            return true; // Data found
+          }
+        }
+        return false; // No data or empty data
+      } catch (e) {
         setError(e.message);
+        return false; // Error occurred
       } finally {
         setLoading(false);
       }
     };
 
-    fetchData();
+    const initializeDateAndFetch = async () => {
+      // Try fetching for the initially selected date (today)
+      const hasData = await fetchData(selectedDate);
+
+      if (!hasData) {
+        // If today has no data, search backward for the most recent date with data
+        const dateWithData = await findDateWithData(selectedDate, -1); // -1 for backward
+        if (dateWithData) {
+          setSelectedDate(dateWithData); // This will trigger another fetchData via useEffect dependency
+        } else {
+          setError('利用可能な在庫データが見つかりませんでした。');
+          setData([]); // Clear data if no date with data is found
+        }
+      }
+    };
+
+    // Only run initializeDateAndFetch on initial mount or when selectedDate changes due to user interaction
+    // To prevent infinite loops, we need to be careful with selectedDate dependency
+    // This useEffect should primarily react to selectedDate changes, and the initial load logic
+    // should be handled carefully to avoid re-triggering when setSelectedDate is called internally.
+
+    // If selectedDate is already set to a specific date (e.g., by findDateWithData), just fetch for it.
+    // Otherwise, perform the initial check for today and backward search.
+    if (data.length === 0 && !error && formatDate(selectedDate) === formatDate(today)) {
+      // This condition ensures it only runs on initial load if today has no data
+      initializeDateAndFetch();
+    } else if (formatDate(selectedDate) !== formatDate(today) || data.length > 0 || error) {
+      // If selectedDate has changed (e.g., by user or findDateWithData) or data is already present/error
+      // just fetch for the current selectedDate.
+      fetchData(selectedDate);
+    }
+
   }, [selectedDate]); // selectedDate が変更されたら再フェッチ
 
-  const handlePreviousDay = () => {
-    const previousDay = new Date(selectedDate);
-    previousDay.setDate(previousDay.getDate() - 1);
-    setSelectedDate(previousDay);
+  const handlePreviousDay = async () => {
+    setLoading(true);
+    const newDate = await findDateWithData(new Date(selectedDate.setDate(selectedDate.getDate() - 1)), -1);
+    if (newDate) {
+      setSelectedDate(newDate);
+    } else {
+      setError('これ以上前の在庫データが見つかりませんでした。');
+      setLoading(false);
+    }
   };
 
-  const handleNextDay = () => {
-    const nextDay = new Date(selectedDate);
-    nextDay.setDate(nextDay.getDate() + 1);
-    setSelectedDate(nextDay);
+  const handleNextDay = async () => {
+    setLoading(true);
+    const newDate = await findDateWithData(new Date(selectedDate.setDate(selectedDate.getDate() + 1)), 1);
+    if (newDate) {
+      setSelectedDate(newDate);
+    } else {
+      setError('これ以上新しい在庫データが見つかりませんでした。');
+      setLoading(false);
+    }
   };
 
   // 翌日へボタンを無効にする条件
