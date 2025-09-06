@@ -14,7 +14,7 @@ const DiscrepancyHistory = () => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const response = await fetch(`/api?page=discrepancy_history`);
+        const response = await fetch(`/.netlify/functions/gas-proxy?page=discrepancy_history`);
         const result = await response.json();
         if (result.success) {
           setHistory(result.data);

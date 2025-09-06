@@ -3,12 +3,18 @@ const fetch = require('node-fetch');
 exports.handler = async function(event, context) {
   // GAS WebアプリのデプロイURLをここに設定してください
   // 例: https://script.google.com/macros/s/AKfycbz.../exec
-  const GAS_WEB_APP_URL = process.env.GAS_WEB_APP_URL; 
+  const GAS_API_URLS = {
+    manuals: process.env.GAS_MANUALS_WEB_APP_URL,
+    stock: process.env.GAS_STOCK_WEB_APP_URL,
+  };
+
+  const type = event.queryStringParameters.type || 'stock'; // Default to 'stock'
+  const GAS_WEB_APP_URL = GAS_API_URLS[type];
 
   if (!GAS_WEB_APP_URL) {
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: 'GAS_WEB_APP_URL environment variable is not set.' }),
+      body: JSON.stringify({ error: `GAS_WEB_APP_URL for type '${type}' environment variable is not set.` }),
     };
   }
 
@@ -19,13 +25,11 @@ exports.handler = async function(event, context) {
 
     const response = await fetch(gasUrl, {
       method: 'GET', // doGetを呼び出すためGETを使用
-      headers: {
-        'Content-Type': 'application/json',
-        // 必要に応じて追加のヘッダー
-      },
-    });
-
-    if (!response.ok) {
+      // headers: {
+      //   'Content-Type': 'application/json',
+      //   // 必要に応じて追加のヘッダー
+      // },
+    }); // Added closing brace here
       throw new Error(`GAS Web App responded with status ${response.status}: ${response.statusText}`);
     }
 

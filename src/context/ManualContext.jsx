@@ -10,7 +10,7 @@ export const ManualProvider = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const GAS_API_URL = EXTERNAL_SERVICES.gasApi.manuals.url;
+  const GAS_API_URL = '/.netlify/functions/gas-proxy?type=manuals';
 
   // Function to fetch manuals from GAS API
   const fetchManuals = async () => {

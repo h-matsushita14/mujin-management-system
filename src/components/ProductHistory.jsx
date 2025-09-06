@@ -21,7 +21,7 @@ const ProductHistory = () => {
     const fetchProducts = async () => {
       try {
         setLoadingProducts(true);
-        const response = await fetch(`/api?page=managed_products`);
+        const response = await fetch(`/.netlify/functions/gas-proxy?type=stock&page=managed_products`);
         const result = await response.json();
         if (result.success) {
           setProducts(result.data);
@@ -45,7 +45,7 @@ const ProductHistory = () => {
       try {
         setLoadingHistory(true);
         setHistory([]);
-        const response = await fetch(`/api?page=inventory_history&productCode=${selectedProduct.productCode}`);
+        const response = await fetch(`/.netlify/functions/gas-proxy?type=stock&page=inventory_history&productCode=${selectedProduct.productCode}`);
         const result = await response.json();
         if (result.success) {
           setHistory(result.data);
