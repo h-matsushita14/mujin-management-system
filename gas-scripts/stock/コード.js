@@ -484,7 +484,45 @@ function doGet(e) {
     const page = e.parameter.page;
 
     if (page === 'inventory_latest') {
-      const result = calculateInventoryBasedOnNewLogic();
+      const dateParam = e.parameter.date;
+      const targetDateYMD = dateParam ? formatDateToYMD(new Date(dateParam)) : formatDateToYMD(new Date());
+
+      const inventoryData = getSheetData(CONFIG.inventorySheetId, CONFIG.inventorySheetName);
+      if (!inventoryData) {
+        return ContentService.createTextOutput(JSON.stringify({ error: '在庫データシートの取得に失敗しました。' }))
+                             .setMimeType(ContentService.MimeType.JSON);
+      }
+
+      const headers = inventoryData[0];
+      const dateColumnIndex = headers.findIndex(header => normalize(header) === '日付');
+
+      if (dateColumnIndex === -1) {
+        return ContentService.createTextOutput(JSON.stringify({ error: '在庫データシートに「日付」列が見つかりません。' }))
+                             .setMimeType(ContentService.MimeType.JSON);
+      }
+
+      const filteredData = inventoryData.slice(1).filter(row => {
+        const rowDate = row[dateColumnIndex];
+        return rowDate && formatDateToYMD(new Date(rowDate)) === targetDateYMD;
+      });
+
+      // フィルタリングされたデータをオブジェクトの配列に変換
+      const formattedData = filteredData.map(row => {
+        const obj = {};
+        headers.forEach((header, index) => {
+          obj[header] = row[index];
+        });
+        return obj;
+      });
+
+      // InventoryList.jsxが期待する形式に合わせる
+      const result = {
+        calculatedInventories: formattedData.reduce((acc, item) => {
+          acc[item['商品コード']] = item;
+          return acc;
+        }, {})
+      };
+
       return ContentService.createTextOutput(JSON.stringify(result))
                            .setMimeType(ContentService.MimeType.JSON);
     } else if (page === 'managed_products') {
