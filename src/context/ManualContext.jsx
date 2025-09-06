@@ -25,10 +25,11 @@ export const ManualProvider = ({ children }) => {
       if (data.success === false) { // Check for success field in GAS response
         throw new Error(data.error || 'Failed to fetch manuals from GAS.');
       }
-      setManuals(data);
+      setManuals(data.manuals || []);
     } catch (err) {
       console.error("Failed to fetch manuals:", err);
       setError(err.message);
+      setManuals([]); // Set to empty array on error
     } finally {
       setIsLoading(false);
     }
