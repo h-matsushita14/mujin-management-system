@@ -481,22 +481,12 @@ function getOldestValidExpirationDate(productCode, deliveryData, deliveryHeaderM
  */
 function doGet(e) {
   try {
-    const testData = {
-      success: true,
-      message: "Hello from simplified GAS!",
-      timestamp: new Date().toISOString()
-    };
-    return ContentService.createTextOutput(JSON.stringify(testData))
-                         .setMimeType(ContentService.MimeType.JSON)
-                         .addHeader('Access-Control-Allow-Origin', '*')
-                         .addHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-                         .addHeader('Access-Control-Allow-Headers', 'Content-Type');
+    const result = calculateInventoryBasedOnNewLogic();
+    return ContentService.createTextOutput(JSON.stringify(result))
+                         .setMimeType(ContentService.MimeType.JSON);
   } catch (error) {
-    Logger.log(`Simplified doGet error: ${error.message}\n${error.stack}`);
-    return ContentService.createTextOutput(JSON.stringify({ success: false, error: `Simplified error: ${error.message}` }))
-                         .setMimeType(ContentService.MimeType.JSON)
-                         .addHeader('Access-Control-Allow-Origin', '*')
-                         .addHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-                         .addHeader('Access-Control-Allow-Headers', 'Content-Type');
+    Logger.log(`doGet error: ${error.message}\n${error.stack}`);
+    return ContentService.createTextOutput(JSON.stringify({ success: false, error: `Error: ${error.message}` }))
+                         .setMimeType(ContentService.MimeType.JSON);
   }
 }
