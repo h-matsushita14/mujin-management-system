@@ -12,8 +12,7 @@ function doGet(e) {
     const data = sheet.getDataRange().getValues();
     if (data.length === 0) {
       return ContentService.createTextOutput(JSON.stringify([]))
-        .setMimeType(ContentService.MimeType.JSON)
-        .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+        .setMimeType(ContentService.MimeType.JSON);
     }
     const headers = data.shift(); // ヘッダー行を削除
     const manuals = data.map(row => {
@@ -24,12 +23,10 @@ function doGet(e) {
       return obj;
     });
     return ContentService.createTextOutput(JSON.stringify(manuals))
-      .setMimeType(ContentService.MimeType.JSON)
-      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+      .setMimeType(ContentService.MimeType.JSON);
   } catch (error) {
     return ContentService.createTextOutput(JSON.stringify({ success: false, error: error.message }))
-      .setMimeType(ContentService.MimeType.JSON)
-      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+      .setMimeType(ContentService.MimeType.JSON);
   }
 }
 
@@ -49,39 +46,14 @@ function doPost(e) {
       const fileUrl = file.getUrl();
 
       return ContentService.createTextOutput(JSON.stringify({ success: true, fileName: fileName, url: fileUrl }))
-        .setMimeType(ContentService.MimeType.JSON)
-        .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+        .setMimeType(ContentService.MimeType.JSON);
     } catch (error) {
       return ContentService.createTextOutput(JSON.stringify({ success: false, error: error.message }))
-        .setMimeType(ContentService.MimeType.JSON)
-        .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
-    }
-  } else if (action === 'updateManuals') {
-    try {
-      const newManuals = JSON.parse(e.postData.contents);
-      const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEET_NAME);
-      if (!sheet) {
-        throw new Error(`Sheet '${SHEET_NAME}' not found.`);
-      }
-
-      // 既存のデータをクリアして新しいデータを書き込む
-      sheet.clearContents();
-      sheet.appendRow(['title', 'url']); // ヘッダーを書き込む
-      newManuals.forEach(manual => {
-        sheet.appendRow([manual.title, manual.url]);
-      });
-
-      return ContentService.createTextOutput(JSON.stringify({ success: true }))
-        .setMimeType(ContentService.MimeType.JSON)
-        .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
-    } catch (error) {
-      return ContentService.createTextOutput(JSON.stringify({ success: false, error: error.message }))
-        .setMimeType(ContentService.MimeType.JSON)
-        .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+        .setMimeType(ContentService.MimeType.JSON);
     }
   }
 
   return ContentService.createTextOutput(JSON.stringify({ success: false, error: 'Invalid action' }))
-    .setMimeType(ContentService.MimeType.JSON)
-    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+    .setMimeType(ContentService.MimeType.JSON);
 }
+
