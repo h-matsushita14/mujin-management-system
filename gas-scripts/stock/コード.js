@@ -481,57 +481,22 @@ function getOldestValidExpirationDate(productCode, deliveryData, deliveryHeaderM
  */
 function doGet(e) {
   try {
-    // Log the entire event object for debugging
-    Logger.log(`doGet received event object: ${JSON.stringify(e)}`);
-
-    // Check if e or e.parameter is undefined
-    if (!e || !e.parameter) {
-      const errorMessage = 'Invalid request: Event object or its parameters are missing.';
-      Logger.log(`doGetエラー: ${errorMessage} Event object: ${JSON.stringify(e)}`);
-      const errorOutput = ContentService.createTextOutput(JSON.stringify({ success: false, error: errorMessage }));
-      errorOutput.setMimeType(ContentService.MimeType.JSON);
-      errorOutput.addHeader('Access-Control-Allow-Origin', '*');
-      errorOutput.addHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-      errorOutput.addHeader('Access-Control-Allow-Headers', 'Content-Type');
-      return errorOutput;
-    }
-
-    const page = e.parameter.page;
-    let output;
-
-    if (page === 'inventory_latest') {
-      const { calculatedInventories } = calculateInventoryBasedOnNewLogic();
-      const inventoryArray = Object.keys(calculatedInventories).map(code => {
-        const item = calculatedInventories[code];
-        return {
-          '商品コード': code,
-          '在庫数': item.inventory,
-          '在庫割合': item.inventoryRatio !== null ? item.inventoryRatio.toFixed(2) + '%' : '',
-          '賞味期限': item.oldestExpirationDate ? formatDateToYMD(item.oldestExpirationDate) : '',
-          '販売可能日数': item.daysUntilSalePossible !== null ? item.daysUntilSalePossible : '',
-          '直近の実在庫確認日': item.baseDate ? formatDateToYMD(item.baseDate) : '',
-          '最終売上日': item.latestSalesDate ? formatDateToYMD(item.latestSalesDate) : '',
-        };
-      });
-      output = ContentService.createTextOutput(JSON.stringify({ success: true, data: inventoryArray }));
-    } else {
-      output = ContentService.createTextOutput(JSON.stringify({ success: false, error: 'Invalid page parameter' }));
-    }
-
-    // Set MIME type and add CORS headers
-    output.setMimeType(ContentService.MimeType.JSON)
-          .addHeader('Access-Control-Allow-Origin', '*') 
-          .addHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-          .addHeader('Access-Control-Allow-Headers', 'Content-Type');
-
-    return output;
+    const testData = {
+      success: true,
+      message: "Hello from simplified GAS!",
+      timestamp: new Date().toISOString()
+    };
+    return ContentService.createTextOutput(JSON.stringify(testData))
+                         .setMimeType(ContentService.MimeType.JSON)
+                         .addHeader('Access-Control-Allow-Origin', '*')
+                         .addHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+                         .addHeader('Access-Control-Allow-Headers', 'Content-Type');
   } catch (error) {
-    Logger.log(`doGetエラー: ${error.message}\n${error.stack}`);
-    const errorOutput = ContentService.createTextOutput(JSON.stringify({ success: false, error: error.message }))
-          .setMimeType(ContentService.MimeType.JSON)
-          .addHeader('Access-Control-Allow-Origin', '*') // Also add to error response
-          .addHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-          .addHeader('Access-Control-Allow-Headers', 'Content-Type');
-    return errorOutput;
+    Logger.log(`Simplified doGet error: ${error.message}\n${error.stack}`);
+    return ContentService.createTextOutput(JSON.stringify({ success: false, error: `Simplified error: ${error.message}` }))
+                         .setMimeType(ContentService.MimeType.JSON)
+                         .addHeader('Access-Control-Allow-Origin', '*')
+                         .addHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+                         .addHeader('Access-Control-Allow-Headers', 'Content-Type');
   }
 }
