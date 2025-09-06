@@ -41,8 +41,7 @@ const InventoryList = () => {
   };
 
   useEffect(() => {
-    const fetchData = async (dateToFetch) => {
-      setLoading(true);
+    const fetchAndSetData = async (dateToFetch) => {
       setError(null);
       try {
         const formattedDate = formatDate(dateToFetch);
@@ -50,51 +49,57 @@ const InventoryList = () => {
         const result = await response.json();
 
         if (result && result.calculatedInventories) {
-          const inventories = Object.values(result.calculatedInventories);
+          const inventories = Object.entries(result.calculatedInventories).map(([productCode, productData]) => ({
+            productCode,
+            ...productData
+          }));
           if (inventories.length > 0) {
             setData(inventories);
             return true; // Data found
           }
         }
+        setData([]); // No data for this date
         return false; // No data or empty data
       } catch (e) {
         setError(e.message);
+        setData([]); // Clear data on error
         return false; // Error occurred
-      } finally {
-        setLoading(false);
       }
     };
 
-    const initializeDateAndFetch = async () => {
-      // Try fetching for the initially selected date (today)
-      const hasData = await fetchData(selectedDate);
+    const handleInitialLoad = async () => {
+      setLoading(true); // Start loading
+      let finalDate = selectedDate;
 
-      if (!hasData) {
-        // If today has no data, search backward for the most recent date with data
-        const dateWithData = await findDateWithData(selectedDate, -1); // -1 for backward
+      const hasDataToday = await fetchAndSetData(selectedDate);
+
+      if (!hasDataToday) {
+        const dateWithData = await findDateWithData(selectedDate, -1); // Search backward
         if (dateWithData) {
-          setSelectedDate(dateWithData); // This will trigger another fetchData via useEffect dependency
+          finalDate = dateWithData;
+          await fetchAndSetData(finalDate); // Fetch data for the found date
         } else {
           setError('利用可能な在庫データが見つかりませんでした。');
-          setData([]); // Clear data if no date with data is found
+          setData([]);
         }
       }
+      setSelectedDate(finalDate); // Update selectedDate only once at the end of initial load
+      setLoading(false); // End loading
     };
 
-    // Only run initializeDateAndFetch on initial mount or when selectedDate changes due to user interaction
-    // To prevent infinite loops, we need to be careful with selectedDate dependency
-    // This useEffect should primarily react to selectedDate changes, and the initial load logic
-    // should be handled carefully to avoid re-triggering when setSelectedDate is called internally.
+    const handleDateChange = async () => {
+      setLoading(true); // Start loading
+      await fetchAndSetData(selectedDate);
+      setLoading(false); // End loading
+    };
 
-    // If selectedDate is already set to a specific date (e.g., by findDateWithData), just fetch for it.
-    // Otherwise, perform the initial check for today and backward search.
+    // Determine if it's an initial load or a subsequent date change
+    // A simple way to check for initial load is if data is empty and no error, and selectedDate is still today
     if (data.length === 0 && !error && formatDate(selectedDate) === formatDate(today)) {
-      // This condition ensures it only runs on initial load if today has no data
-      initializeDateAndFetch();
-    } else if (formatDate(selectedDate) !== formatDate(today) || data.length > 0 || error) {
-      // If selectedDate has changed (e.g., by user or findDateWithData) or data is already present/error
-      // just fetch for the current selectedDate.
-      fetchData(selectedDate);
+      handleInitialLoad();
+    } else {
+      // This covers user-triggered date changes and the re-render after setSelectedDate in handleInitialLoad
+      handleDateChange();
     }
 
   }, [selectedDate]); // selectedDate が変更されたら再フェッチ
