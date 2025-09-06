@@ -51,8 +51,12 @@ const InventoryList = () => {
 
         if (result && result.calculatedInventories) {
           const inventories = Object.entries(result.calculatedInventories).map(([productCode, productData]) => ({
-            productCode,
-            ...productData
+            productCode: productCode,
+            productName: productData['商品名'],
+            inventory: productData['在庫数'],
+            inventoryRatio: productData['在庫割合'],
+            oldestExpirationDate: productData['賞味期限'],
+            daysUntilSalePossible: productData['販売可能日数'],
           }));
           if (inventories.length > 0) {
             setData(inventories);
