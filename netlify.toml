@@ -3,7 +3,8 @@
   command = "npm run build" # Your React build command
   publish = "dist" # The directory where your built React app is located (e.g., 'build' for Create React App)
 
-
+[build.environment]
+  GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzcm29NtPBqS_kJ5-S0nfJBYsyMGU91WFlwUdU7sDsB-QE-SdnF4HFpVIoh_Ra2CvON/exec"
 
 [functions]
   directory = "netlify/functions" # Directory where your Netlify Functions are located
