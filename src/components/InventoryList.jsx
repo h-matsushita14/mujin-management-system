@@ -47,6 +47,7 @@ const InventoryList = () => {
         const formattedDate = formatDate(dateToFetch);
         const response = await fetch(`/.netlify/functions/gas-proxy?page=inventory_latest&date=${formattedDate}`);
         const result = await response.json();
+        console.log('GAS Proxy Result:', result);
 
         if (result && result.calculatedInventories) {
           const inventories = Object.entries(result.calculatedInventories).map(([productCode, productData]) => ({
