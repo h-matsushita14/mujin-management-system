@@ -8,7 +8,7 @@ const DiscrepancyHistory = () => {
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [selectedProduct, setSelectedProduct] = useState('');
+  const [selectedProduct, setSelectedProduct] = useState('全商品');
 
   useEffect(() => {
     const fetchData = async () => {

@@ -21,11 +21,13 @@ export const ManualProvider = ({ children }) => {
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      const data = await response.json();
-      if (data.success === false) { // Check for success field in GAS response
-        throw new Error(data.error || 'Failed to fetch manuals from GAS.');
-      }
-      setManuals(data.manuals || []);
+      const data = await response.json(); // data is now the array directly
+      // Map the incoming data to the expected format { title, url }
+      const transformedManuals = data.map(item => ({
+        title: item['マニュアル名'],
+        url: item['URL']
+      }));
+      setManuals(transformedManuals);
     } catch (err) {
       console.error("Failed to fetch manuals:", err);
       setError(err.message);

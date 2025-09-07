@@ -1,14 +1,14 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import {
-  Grid, Paper, List, ListItem, ListItemButton, ListItemText, CircularProgress, Typography, Alert,
-  Box, Tab, Tabs, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
-  Button // Added Button import
-} from '@mui/material';
+import { Grid, Paper, List, ListItem, ListItemButton, ListItemText, CircularProgress, Typography, Alert, Box, Tab, Tabs, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Button, FormControl, InputLabel, Select, MenuItem } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
+import useMediaQuery from '@mui/material/useMediaQuery';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 
 
 const ProductHistory = () => {
+  const theme = useTheme();
+  const isSmallScreen = useMediaQuery(theme.breakpoints.down('md'));
   const [products, setProducts] = useState([]);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [history, setHistory] = useState([]);
@@ -134,24 +134,46 @@ const ProductHistory = () => {
     <Grid container spacing={2}>
       <Grid item xs={12} md={4}>
         <Typography variant="h6" gutterBottom>商品リスト</Typography>
-        <Paper style={{ maxHeight: '60vh', overflow: 'auto' }}>
-          {loadingProducts ? (
-            <CircularProgress />
-          ) : (
-            <List>
+        {isSmallScreen ? (
+          <FormControl fullWidth sx={{ mb: 2 }}>
+            <InputLabel id="product-select-label">商品を選択</InputLabel>
+            <Select
+              labelId="product-select-label"
+              value={selectedProduct ? selectedProduct.productCode : ''}
+              label="商品を選択"
+              onChange={(e) => {
+                const productCode = e.target.value;
+                const product = products.find(p => p.productCode === productCode);
+                handleProductSelect(product);
+              }}
+            >
               {products.map((product) => (
-                <ListItem key={product.productCode} disablePadding>
-                  <ListItemButton
-                    selected={selectedProduct?.productCode === product.productCode}
-                    onClick={() => handleProductSelect(product)}
-                  >
-                    <ListItemText primary={product.productName} secondary={`コード: ${product.productCode}`} />
-                  </ListItemButton>
-                </ListItem>
+                <MenuItem key={product.productCode} value={product.productCode}>
+                  {product.productName}
+                </MenuItem>
               ))}
-            </List>
-          )}
-        </Paper>
+            </Select>
+          </FormControl>
+        ) : (
+          <Paper style={{ maxHeight: '60vh', overflow: 'auto' }}>
+            {loadingProducts ? (
+              <CircularProgress />
+            ) : (
+              <List>
+                {products.map((product) => (
+                  <ListItem key={product.productCode} disablePadding>
+                    <ListItemButton
+                      selected={selectedProduct?.productCode === product.productCode}
+                      onClick={() => handleProductSelect(product)}
+                    >
+                      <ListItemText primary={product.productName} secondary={`コード: ${product.productCode}`} />
+                    </ListItemButton>
+                  </ListItem>
+                ))}
+              </List>
+            )}
+          </Paper>
+        )}
       </Grid>
       <Grid item xs={12} md={8}>
         <Typography variant="h6" gutterBottom>
