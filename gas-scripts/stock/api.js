@@ -130,7 +130,7 @@ function doGet(e) {
         const inventoryData = inventorySheet.getDataRange().getValues();
         const headers = inventoryData[0];
         const headerMap = createHeaderMap(headers);
-        let filteredData;
+        const filteredData = [];
 
         const productCode = e.parameter.productCode;
         if (!productCode) return createJsonResponse({ success: false, error: 'productCode is missing.' });
@@ -197,7 +197,7 @@ function doGet(e) {
         const inventoryData = inventorySheet.getDataRange().getValues();
         const headers = inventoryData[0];
         const headerMap = createHeaderMap(headers);
-        let filteredData;
+        const filteredData = [];
 
         const discrepancyColIndex = headerMap["差異"];
         if (discrepancyColIndex === undefined) return createJsonResponse({ success: false, error: '「差異」列が見つかりません。' });
