@@ -214,6 +214,7 @@ function doGet(e) {
             });
             return obj;
         });
+        Logger.log("Formatted data for discrepancy_history:", formattedData);
         return createJsonResponse(formattedData);
       }
 
