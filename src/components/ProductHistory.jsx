@@ -94,7 +94,7 @@ const ProductHistory = () => {
         const result = await response.json();
         // The GAS API for inventory_history returns the array directly, not an object with success/data properties.
         const transformedHistory = result.map(item => ({
-          date: item['日付'], // Assuming '日付' is the date field from GAS
+          date: new Date(item['日付']).toLocaleDateString(), // Format date to exclude time
           stock: item['在庫数'] // Assuming '在庫数' is the stock count field from GAS
         }));
         // Sort history by date in descending order (most recent first)
