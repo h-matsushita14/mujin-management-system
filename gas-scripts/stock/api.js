@@ -13,6 +13,22 @@ function createJsonResponse(data) {
     .setMimeType(ContentService.MimeType.JSON);
 }
 
+function doPost(e) {
+  try {
+    const action = e.parameter.action;
+    if (action === 'updateToday') {
+      // ここに在庫更新のロジックを実装するか、aggregation.jsの関数を呼び出す
+      // 例: updateStockData();
+      return createJsonResponse({ success: true, message: '在庫データ更新リクエストを受け付けました。' });
+    } else {
+      return createJsonResponse({ success: false, error: 'Invalid action for POST request.' });
+    }
+  } catch (error) {
+    Logger.log(`doPost error: ${error.message}\n${error.stack}`);
+    return createJsonResponse({ success: false, error: `An unexpected error occurred: ${error.message}` });
+  }
+}
+
 /**
  * WebアプリからのGETリクエストを処理します。
  * @param {GoogleAppsScript.Events.DoGet} e イベントオブジェクト。

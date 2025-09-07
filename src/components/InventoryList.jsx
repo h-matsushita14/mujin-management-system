@@ -182,8 +182,7 @@ const InventoryList = () => {
       ) : displayedInventory.length === 0 ? (
         <Alert severity="info">表示する在庫データがありません。</Alert>
       ) : (
-        <Box sx={{ height: 600, overflowY: 'auto' }}>
-          <TableContainer component={Paper}>
+        <TableContainer component={Paper} sx={{ height: 600, overflowY: 'auto' }}>
             <Table sx={{ minWidth: 650 }} aria-label="inventory table" stickyHeader>
               <TableHead sx={{ position: 'sticky', top: 0, zIndex: 1, bgcolor: 'background.paper' }}>
                 <TableRow>
