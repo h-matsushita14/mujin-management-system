@@ -216,3 +216,5 @@ const ProductHistory = () => {
     </Grid>
   );
 };
+
+export { ProductHistory };

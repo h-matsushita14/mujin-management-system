@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Container, Typography, Box, Tabs, Tab } from '@mui/material';
 import InventoryList from '../components/InventoryList';
-import ProductHistory from '../components/ProductHistory';
+import { ProductHistory } from '../components/ProductHistory';
 import DiscrepancyHistory from '../components/DiscrepancyHistory';
 
 // TabPanel component to associate content with a tab
