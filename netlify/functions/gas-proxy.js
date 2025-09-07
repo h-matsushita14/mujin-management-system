@@ -22,7 +22,13 @@ exports.handler = async function(event, context) {
 
   try {
     // クエリパラメータをGASに転送
-    const queryString = new URLSearchParams(event.queryStringParameters).toString();
+    const paramsToForward = new URLSearchParams();
+    for (const key in event.queryStringParameters) {
+      if (key !== 'type') {
+        paramsToForward.append(key, event.queryStringParameters[key]);
+      }
+    }
+    const queryString = paramsToForward.toString();
     const gasUrl = `${GAS_WEB_APP_URL}?${queryString}`;
 
     console.log('Fetching from GAS URL:', gasUrl); // Debug log
