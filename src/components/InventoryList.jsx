@@ -1,236 +1,225 @@
-import React, { useState, useEffect } from 'react';
-import { Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, CircularProgress, Typography, Alert, Box, Button } from '@mui/material';
+import React, { useState, useEffect, useCallback } from 'react';
+import { 
+  Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, 
+  CircularProgress, Typography, Alert, Box, Button, TextField 
+} from '@mui/material';
 import ArrowBackIosIcon from '@mui/icons-material/ArrowBackIos';
 import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
+import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import ja from 'date-fns/locale/ja';
+import { EXTERNAL_SERVICES } from '../config/externalServices';
 
-// 日付を YYYY-MM-DD 形式にフォーマットするヘルパー関数
 const formatDate = (date) => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
+  const d = new Date(date);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 };
 
+const CACHE_SIZE = 7; // キャッシュする日数
+
 const InventoryList = () => {
-  const [data, setData] = useState([]);
+  const [inventoryCache, setInventoryCache] = useState({});
+  const [cacheOrder, setCacheOrder] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [selectedDate, setSelectedDate] = useState(new Date()); // デフォルトは当日
-  const [today] = useState(new Date()); // 当日の日付を固定
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const today = new Date();
+  const [updateLoading, setUpdateLoading] = useState(false);
+  const [message, setMessage] = useState({ type: '', text: '' });
 
-  // Helper function to find a date with data
-  const findDateWithData = async (startDate, direction, maxAttempts = 30) => {
-    let currentDate = new Date(startDate);
-    for (let i = 0; i < maxAttempts; i++) {
-      const formattedDate = formatDate(currentDate);
-      try {
-        const response = await fetch(`/.netlify/functions/gas-proxy?page=inventory_latest&date=${formattedDate}`);
-        const result = await response.json();
-        if (result && result.calculatedInventories && Object.values(result.calculatedInventories).length > 0) {
-          return currentDate; // Found a date with data
-        }
-      } catch (e) {
-        console.error(`Error fetching data for ${formattedDate}:`, e);
-        // Continue searching even if there's an error for a specific date
-      }
-
-      // Move to the next/previous day
-      currentDate.setDate(currentDate.getDate() + direction);
+  const fetchInventory = useCallback(async (date) => {
+    const dateStr = formatDate(date);
+    if (inventoryCache[dateStr]) {
+      return inventoryCache[dateStr];
     }
-    return null; // No date with data found within maxAttempts
-  };
+    const url = `${EXTERNAL_SERVICES.gasApi.stockApp.url}&page=inventory_latest&date=${dateStr}`;
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`API error! status: ${response.status}`);
+    const data = await response.json();
+    if (data.error) throw new Error(data.error);
+    
+    setInventoryCache(prevCache => {
+      const newCache = { ...prevCache, [dateStr]: data };
+      const newOrder = [dateStr, ...cacheOrder.filter(d => d !== dateStr)];
+      if (newOrder.length > CACHE_SIZE) {
+        const oldestKey = newOrder.pop();
+        delete newCache[oldestKey];
+      }
+      setCacheOrder(newOrder);
+      return newCache;
+    });
+    return data;
+  }, [inventoryCache, cacheOrder]);
+
+  const prefetchNeighboringDays = useCallback((date) => {
+    const prevDay = new Date(date);
+    prevDay.setDate(date.getDate() - 1);
+    const nextDay = new Date(date);
+    nextDay.setDate(date.getDate() + 1);
+
+    fetchInventory(prevDay).catch(err => console.error('Prefetch prev day failed:', err));
+
+    if (nextDay <= today) {
+      fetchInventory(nextDay).catch(err => console.error('Prefetch next day failed:', err));
+    }
+  }, [fetchInventory, today]);
 
   useEffect(() => {
-    const fetchAndSetData = async (dateToFetch) => {
+    const loadData = async () => {
+      setLoading(true);
       setError(null);
       try {
-        const formattedDate = formatDate(dateToFetch);
-        const response = await fetch(`/.netlify/functions/gas-proxy?page=inventory_latest&date=${formattedDate}`);
-        const result = await response.json();
-        console.log('GAS Proxy Result:', result);
-
-        if (result && result.calculatedInventories) {
-          const inventories = Object.entries(result.calculatedInventories).map(([productCode, productData]) => ({
-            productCode: productCode,
-            productName: productData['商品名'],
-            inventory: productData['在庫数'],
-            inventoryRatio: productData['在庫割合'],
-            oldestExpirationDate: productData['賞味期限'],
-            daysUntilSalePossible: productData['販売可能日数'],
-          }));
-          if (inventories.length > 0) {
-            setData(inventories);
-            return true; // Data found
-          }
+        const data = await fetchInventory(selectedDate);
+        if (!data || data.length === 0) {
+           setMessage({ type: 'info', text: '該当日付の在庫データが見つかりません。' });
         }
-        setData([]); // No data for this date
-        return false; // No data or empty data
+        prefetchNeighboringDays(selectedDate);
       } catch (e) {
         setError(e.message);
-        setData([]); // Clear data on error
-        return false; // Error occurred
+        setMessage({ type: 'error', text: `データの取得に失敗しました: ${e.message}` });
+      } finally {
+        setLoading(false);
       }
     };
+    loadData();
+  }, [selectedDate, fetchInventory, prefetchNeighboringDays]);
 
-    const handleInitialLoad = async () => {
-      setLoading(true); // Start loading
-      let finalDate = selectedDate;
-
-      const hasDataToday = await fetchAndSetData(selectedDate);
-
-      if (!hasDataToday) {
-        const dateWithData = await findDateWithData(selectedDate, -1); // Search backward
-        if (dateWithData) {
-          finalDate = dateWithData;
-          await fetchAndSetData(finalDate); // Fetch data for the found date
-        } else {
-          setError('利用可能な在庫データが見つかりませんでした。');
-          setData([]);
-        }
-      }
-      setSelectedDate(finalDate); // Update selectedDate only once at the end of initial load
-      setLoading(false); // End loading
-    };
-
-    const handleDateChange = async () => {
-      setLoading(true); // Start loading
-      await fetchAndSetData(selectedDate);
-      setLoading(false); // End loading
-    };
-
-    // Determine if it's an initial load or a subsequent date change
-    // A simple way to check for initial load is if data is empty and no error, and selectedDate is still today
-    if (data.length === 0 && !error && formatDate(selectedDate) === formatDate(today)) {
-      handleInitialLoad();
-    } else {
-      // This covers user-triggered date changes and the re-render after setSelectedDate in handleInitialLoad
-      handleDateChange();
-    }
-
-  }, [selectedDate]); // selectedDate が変更されたら再フェッチ
-
-  const handlePreviousDay = async () => {
-    setLoading(true);
-    const newDate = await findDateWithData(new Date(selectedDate.setDate(selectedDate.getDate() - 1)), -1);
-    if (newDate) {
-      setSelectedDate(newDate);
-    } else {
-      setError('これ以上前の在庫データが見つかりませんでした。');
-      setLoading(false);
+  const handleDateChange = (newValue) => {
+    if (newValue && formatDate(newValue) !== formatDate(selectedDate)) {
+      setSelectedDate(newValue);
     }
   };
 
-  const handleNextDay = async () => {
-    setLoading(true);
-    const newDate = await findDateWithData(new Date(selectedDate.setDate(selectedDate.getDate() + 1)), 1);
-    if (newDate) {
-      setSelectedDate(newDate);
-    } else {
-      setError('これ以上新しい在庫データが見つかりませんでした。');
-      setLoading(false);
-    }
+  const handlePrevDay = () => {
+    const newDate = new Date(selectedDate);
+    newDate.setDate(selectedDate.getDate() - 1);
+    setSelectedDate(newDate);
   };
 
-  const handleToday = async () => {
-    setLoading(true);
-    // Reset selectedDate to today's date.
-    // The useEffect will then handle fetching data for today,
-    // and if no data, it will search backward.
+  const handleNextDay = () => {
+    const newDate = new Date(selectedDate);
+    newDate.setDate(selectedDate.getDate() + 1);
+    setSelectedDate(newDate);
+  };
+
+  const handleToday = () => {
     setSelectedDate(new Date());
-    // setLoading(false) will be handled by useEffect after data fetch
   };
 
-  // 翌日へボタンを無効にする条件
+  const handleStockUpdate = async () => {
+    setUpdateLoading(true);
+    setMessage({ type: 'info', text: '在庫データの更新処理を開始しました...' });
+    try {
+      const response = await fetch(EXTERNAL_SERVICES.gasApi.stockApp.url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ action: 'updateToday' }),
+        mode: 'cors',
+      });
+      const result = await response.json();
+      if (result.success) {
+        setMessage({ type: 'success', text: `${result.message} 最新のデータを再取得します。` });
+        // キャッシュをクリアして強制的に再フェッチさせる
+        setInventoryCache(prev => ({...prev, [formatDate(selectedDate)]: undefined }));
+        setSelectedDate(new Date(selectedDate.getTime()));
+      } else {
+        throw new Error(result.message || '不明なエラーが発生しました。');
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: `更新処理中にエラーが発生しました: ${error.message}` });
+    } finally {
+      setUpdateLoading(false);
+    }
+  };
+
   const isNextDayDisabled = formatDate(selectedDate) === formatDate(today);
-
-  if (loading) {
-    return <CircularProgress />;
-  }
-
-  if (error) {
-    return <Alert severity="error">{error}</Alert>;
-  }
-
-  if (data.length === 0) {
-    return <Typography>表示する在庫データがありません。</Typography>;
-  }
+  const displayedInventory = inventoryCache[formatDate(selectedDate)] || [];
 
   return (
-    <Box>
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 2 }}>
-        <Button onClick={handlePreviousDay} startIcon={<ArrowBackIosIcon />}>
-          前日へ
-        </Button>
-        <Typography variant="h6" sx={{ mx: 2 }}>
-          {formatDate(selectedDate)}
-        </Typography>
-        <Button onClick={handleNextDay} endIcon={<ArrowForwardIosIcon />} disabled={isNextDayDisabled}>
-          翌日へ
-        </Button>
-        <Button
-          onClick={handleToday}
-          disabled={formatDate(selectedDate) === formatDate(today)}
-          sx={{ ml: 1 }}
-        >
-          当日へ
-        </Button>
+    <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ja}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap' }}>
+        <DatePicker
+          label="日付選択"
+          value={selectedDate}
+          onChange={handleDateChange}
+          renderInput={(params) => <TextField {...params} />}
+          maxDate={today}
+        />
+        <Box sx={{ display: 'flex', alignItems: 'center', mt: { xs: 2, sm: 0 } }}>
+          <Button onClick={handlePrevDay} startIcon={<ArrowBackIosIcon />}>前日へ</Button>
+          <Button onClick={handleNextDay} endIcon={<ArrowForwardIosIcon />} disabled={isNextDayDisabled}>翌日へ</Button>
+          <Button onClick={handleToday} disabled={isNextDayDisabled} sx={{ ml: 1 }}>当日へ</Button>
+          <Button
+            variant="contained"
+            onClick={handleStockUpdate}
+            disabled={updateLoading}
+            sx={{ ml: 2 }}
+          >
+            更新
+            {updateLoading && <CircularProgress size={24} sx={{ color: 'white', position: 'absolute'}} />}
+          </Button>
+        </Box>
       </Box>
-      <TableContainer component={Paper}>
-        <Table sx={{ minWidth: 650 }} aria-label="simple table">
-          <TableHead>
-            <TableRow>
-              <TableCell>商品コード</TableCell>
-              <TableCell>商品名</TableCell>
-              <TableCell align="right">在庫数</TableCell>
-              <TableCell>在庫割合</TableCell> {/* 棒グラフ用 */}
-              <TableCell>賞味期限</TableCell>
-              <TableCell>販売可能日数</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {data.map((row, index) => (
-              <TableRow key={index}>
-                <TableCell>{row.productCode}</TableCell>
-                <TableCell>{row.productName}</TableCell>
-                <TableCell align="right">{row.inventory}</TableCell>
-                <TableCell>
-                  {row.inventoryRatio !== null && row.inventoryRatio !== undefined ? (
-                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      <Box
-                        sx={{
-                          width: '100px', // 棒グラフの幅
-                          height: '20px', // 棒グラフの高さ
-                          bgcolor: 'grey.300',
-                          borderRadius: '4px',
-                          overflow: 'hidden',
-                          mr: 1,
-                          position: 'relative',
-                          '&::before': {
-                            content: '""',
-                            position: 'absolute',
-                            top: 0,
-                            left: 0,
-                            height: '100%',
-                            width: `${Math.min(100, Math.max(0, row.inventoryRatio))}%`, // 0-100%に制限
-                            bgcolor: 'primary.main', // 棒グラフの色
-                            borderRadius: '4px',
-                          },
-                        }}
-                      />
-                      <Typography variant="body2">{`${row.inventoryRatio.toFixed(1)}%`}</Typography>
-                    </Box>
-                  ) : (
-                    <Typography variant="body2">N/A</Typography>
-                  )}
-                </TableCell>
-                <TableCell>{row.oldestExpirationDate ? formatDate(new Date(row.oldestExpirationDate)) : 'N/A'}</TableCell>
-                <TableCell>{row.daysUntilSalePossible !== null && row.daysUntilSalePossible !== undefined ? row.daysUntilSalePossible : 'N/A'}</TableCell>
+
+      {message.text && (
+        <Alert severity={message.type} sx={{ mb: 2 }} onClose={() => setMessage({ type: '', text: '' })}>
+          {message.text}
+        </Alert>
+      )}
+
+      {loading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}><CircularProgress /></Box>
+      ) : error ? (
+        <Alert severity="error">{error}</Alert>
+      ) : displayedInventory.length === 0 ? (
+        <Alert severity="info">表示する在庫データがありません。</Alert>
+      ) : (
+        <TableContainer component={Paper}>
+          <Table sx={{ minWidth: 650 }} aria-label="inventory table">
+            <TableHead>
+              <TableRow>
+                <TableCell>商品コード</TableCell>
+                <TableCell>商品名</TableCell>
+                <TableCell align="right">在庫数</TableCell>
+                <TableCell>在庫割合</TableCell>
+                <TableCell>賞味期限</TableCell>
+                <TableCell>販売可能日数</TableCell>
+                <TableCell align="right">理論在庫</TableCell>
+                <TableCell align="right">実在庫数</TableCell>
+                <TableCell align="right">差異</TableCell>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
-    </Box>
+            </TableHead>
+            <TableBody>
+              {displayedInventory.map((item, index) => (
+                <TableRow key={item['商品コード'] || index}>
+                  <TableCell>{item['商品コード']}</TableCell>
+                  <TableCell>{item['商品名']}</TableCell>
+                  <TableCell align="right">{item['在庫数']}</TableCell>
+                  <TableCell>
+                    {item['在庫割合'] !== null && item['在庫割合'] !== undefined && item['在庫割合'] !== 'N/A' ? (
+                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                        <Box sx={{ width: '100px', height: '20px', bgcolor: 'grey.300', borderRadius: '4px', overflow: 'hidden', mr: 1, position: 'relative', '&::before': { content: '""', position: 'absolute', top: 0, left: 0, height: '100%', width: `${Math.min(100, Math.max(0, parseFloat(item['在庫割合'])))}%`, bgcolor: 'primary.main', borderRadius: '4px' } }} />
+                        <Typography variant="body2">{`${parseFloat(item['在庫割合']).toFixed(1)}%`}</Typography>
+                      </Box>
+                    ) : (
+                      <Typography variant="body2">N/A</Typography>
+                    )}
+                  </TableCell>
+                  <TableCell>{item['賞味期限'] ? formatDate(new Date(item['賞味期限'])) : 'N/A'}</TableCell>
+                  <TableCell>{item['販売可能日数'] !== null && item['販売可能日数'] !== undefined ? item['販売可能日数'] : 'N/A'}</TableCell>
+                  <TableCell align="right">{item['理論在庫']}</TableCell>
+                  <TableCell align="right">{item['実在庫数']}</TableCell>
+                  <TableCell align="right">{item['差異']}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      )}
+    </LocalizationProvider>
   );
 };
 
