@@ -122,7 +122,72 @@ function doGet(e) {
         return createJsonResponse(managedProducts);
       }
 
-      case 'inventory_history':
+      case 'inventory_history': {
+        const inventorySheet = SpreadsheetApp.openById(CONFIG.inventorySheetId).getSheetByName(CONFIG.inventorySheetName);
+        if (!inventorySheet) {
+          return createJsonResponse({ success: false, error: '在庫データシートが見つかりません。' });
+        }
+        const inventoryData = inventorySheet.getDataRange().getValues();
+        const headers = inventoryData[0];
+        const headerMap = createHeaderMap(headers);
+        let filteredData;
+
+        const productCode = e.parameter.productCode;
+        if (!productCode) return createJsonResponse({ success: false, error: 'productCode is missing.' });
+        const codeColIndex = headerMap["商品コード"];
+        const dateColIndex = headerMap["日付"]; // Get date column index
+        if (codeColIndex === undefined || dateColIndex === undefined) return createJsonResponse({ success: false, error: '「商品コード」または「日付」列が見つかりません。' });
+
+        const startDateParam = e.parameter.startDate;
+        const endDateParam = e.parameter.endDate;
+        Logger.log(`Received startDate: ${startDateParam}, endDate: ${endDateParam}`);
+        const filterByDate = startDateParam && endDateParam;
+        let startDate = null;
+        let endDate = null;
+        if (filterByDate) {
+          startDate = getStartOfDay(new Date(startDateParam));
+          endDate = getStartOfDay(new Date(endDateParam));
+          Logger.log(`Parsed startDate: ${startDate}, endDate: ${endDate}`);
+        }
+
+        const lastRow = inventorySheet.getLastRow();
+        if (lastRow < 2) return createJsonResponse([]);
+
+        const allInventoryData = inventorySheet.getRange(2, 1, lastRow - 1, headers.length).getValues(); // Get all data to filter
+        const matchingRowsData = [];
+
+        allInventoryData.forEach(row => {
+          const rowProductCode = normalize(row[codeColIndex]);
+          const rowDate = getStartOfDay(new Date(row[dateColIndex]));
+          Logger.log(`Processing rowDate: ${rowDate} for product: ${rowProductCode}`);
+
+          if (rowProductCode === normalize(productCode)) {
+            if (filterByDate) {
+              if (rowDate >= startDate && rowDate <= endDate) {
+                matchingRowsData.push(row);
+              } else {
+                Logger.log(`Row date ${rowDate} outside range [${startDate}, ${endDate}]`);
+              }
+            } else {
+              matchingRowsData.push(row);
+            }
+          }
+        });
+        filteredData = matchingRowsData;
+
+        const requiredInventoryHistoryFields = ["商品コード", "商品名", "日付", "在庫数"]; // Return these fields for inventory history
+        const formattedData = filteredData.map(row => {
+            const obj = {};
+            requiredInventoryHistoryFields.forEach(field => {
+                const idx = headerMap[field];
+                if (idx !== undefined) obj[field] = row[idx];
+            });
+            return obj;
+        });
+        Logger.log("Formatted data for inventory_history:", formattedData);
+        return createJsonResponse(formattedData);
+      }
+
       case 'discrepancy_history': {
         const inventorySheet = SpreadsheetApp.openById(CONFIG.inventorySheetId).getSheetByName(CONFIG.inventorySheetName);
         if (!inventorySheet) {
@@ -133,77 +198,31 @@ function doGet(e) {
         const headerMap = createHeaderMap(headers);
         let filteredData;
 
-        if (page === 'inventory_history') {
-          const productCode = e.parameter.productCode;
-          if (!productCode) return createJsonResponse({ success: false, error: 'productCode is missing.' });
-          const codeColIndex = headerMap["商品コード"];
-          const dateColIndex = headerMap["日付"]; // Get date column index
-          if (codeColIndex === undefined || dateColIndex === undefined) return createJsonResponse({ success: false, error: '「商品コード」または「日付」列が見つかりません。' });
+        const discrepancyColIndex = headerMap["差異"];
+        if (discrepancyColIndex === undefined) return createJsonResponse({ success: false, error: '「差異」列が見つかりません。' });
 
-          const startDateParam = e.parameter.startDate;
-          const endDateParam = e.parameter.endDate;
-          Logger.log(`Received startDate: ${startDateParam}, endDate: ${endDateParam}`);
-          const filterByDate = startDateParam && endDateParam;
-          let startDate = null;
-          let endDate = null;
-          if (filterByDate) {
-            startDate = getStartOfDay(new Date(startDateParam));
-            endDate = getStartOfDay(new Date(endDateParam));
-            Logger.log(`Parsed startDate: ${startDate}, endDate: ${endDate}`);
+        const lastRow = inventorySheet.getLastRow();
+        if (lastRow < 2) return createJsonResponse([]);
+
+        const discrepancyColumnData = inventorySheet.getRange(2, discrepancyColIndex + 1, lastRow - 1, 1).getValues();
+        const matchingRowNumbers = [];
+
+        discrepancyColumnData.forEach((row, index) => {
+          const currentRowNumber = index + 2;
+          const discrepancyValue = row[0];
+          if (discrepancyValue !== null && discrepancyValue !== '' && discrepancyValue != 0) {
+            matchingRowNumbers.push(currentRowNumber);
           }
+        });
 
-          const lastRow = inventorySheet.getLastRow();
-          if (lastRow < 2) return createJsonResponse([]);
-
-          const allInventoryData = inventorySheet.getRange(2, 1, lastRow - 1, headers.length).getValues(); // Get all data to filter
-          const matchingRowsData = [];
-
-          allInventoryData.forEach(row => {
-            const rowProductCode = normalize(row[codeColIndex]);
-            const rowDate = getStartOfDay(new Date(row[dateColIndex]));
-            Logger.log(`Processing rowDate: ${rowDate} for product: ${rowProductCode}`);
-
-            if (rowProductCode === normalize(productCode)) {
-              if (filterByDate) {
-                if (rowDate >= startDate && rowDate <= endDate) {
-                  matchingRowsData.push(row);
-                } else {
-                  Logger.log(`Row date ${rowDate} outside range [${startDate}, ${endDate}]`);
-                }
-              } else {
-                matchingRowsData.push(row);
-              }
-            }
+        const matchedRowsData = [];
+        if (matchingRowNumbers.length > 0) {
+          matchingRowsData.forEach(rowNum => {
+            const fullRow = inventorySheet.getRange(rowNum, 1, 1, headers.length).getValues()[0];
+            matchedRowsData.push(fullRow);
           });
-          filteredData = matchingRowsData;
-
-        } else { // discrepancy_history
-          const discrepancyColIndex = headerMap["差異"];
-          if (discrepancyColIndex === undefined) return createJsonResponse({ success: false, error: '「差異」列が見つかりません。' });
-
-          const lastRow = inventorySheet.getLastRow();
-          if (lastRow < 2) return createJsonResponse([]);
-
-          const discrepancyColumnData = inventorySheet.getRange(2, discrepancyColIndex + 1, lastRow - 1, 1).getValues();
-          const matchingRowNumbers = [];
-
-          discrepancyColumnData.forEach((row, index) => {
-            const currentRowNumber = index + 2;
-            const discrepancyValue = row[0];
-            if (discrepancyValue !== null && discrepancyValue !== '' && discrepancyValue != 0) {
-              matchingRowNumbers.push(currentRowNumber);
-            }
-          });
-
-          const matchedRowsData = [];
-          if (matchingRowNumbers.length > 0) {
-            matchingRowNumbers.forEach(rowNum => {
-              const fullRow = inventorySheet.getRange(rowNum, 1, 1, headers.length).getValues()[0];
-              matchedRowsData.push(fullRow);
-            });
-          }
-          filteredData = matchedRowsData;
         }
+        filteredData = matchedRowsData;
         
         const requiredDiscrepancyFields = ["商品コード", "商品名", "日付", "差異"]; // Only return these fields for discrepancy history
         const formattedData = filteredData.map(row => {
