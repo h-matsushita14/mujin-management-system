@@ -142,12 +142,14 @@ function doGet(e) {
 
           const startDateParam = e.parameter.startDate;
           const endDateParam = e.parameter.endDate;
+          Logger.log(`Received startDate: ${startDateParam}, endDate: ${endDateParam}`);
           const filterByDate = startDateParam && endDateParam;
           let startDate = null;
           let endDate = null;
           if (filterByDate) {
             startDate = getStartOfDay(new Date(startDateParam));
             endDate = getStartOfDay(new Date(endDateParam));
+            Logger.log(`Parsed startDate: ${startDate}, endDate: ${endDate}`);
           }
 
           const lastRow = inventorySheet.getLastRow();
@@ -159,11 +161,14 @@ function doGet(e) {
           allInventoryData.forEach(row => {
             const rowProductCode = normalize(row[codeColIndex]);
             const rowDate = getStartOfDay(new Date(row[dateColIndex]));
+            Logger.log(`Processing rowDate: ${rowDate} for product: ${rowProductCode}`);
 
             if (rowProductCode === normalize(productCode)) {
               if (filterByDate) {
                 if (rowDate >= startDate && rowDate <= endDate) {
                   matchingRowsData.push(row);
+                } else {
+                  Logger.log(`Row date ${rowDate} outside range [${startDate}, ${endDate}]`);
                 }
               } else {
                 matchingRowsData.push(row);

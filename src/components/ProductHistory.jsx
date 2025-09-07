@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import {
   Grid, Paper, List, ListItem, ListItemButton, ListItemText, CircularProgress, Typography, Alert,
-  Box, Tab, Tabs, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Button
+  Box, Tab, Tabs, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
+  Button // Added Button import
 } from '@mui/material';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
@@ -14,8 +15,8 @@ const ProductHistory = () => {
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [error, setError] = useState(null);
-  const [tabValue, setTabValue] = useState(0);
-  const [dateRange, setDateRange] = useState('all'); // 'all', '1week', '2week', '1month', '3month'
+  const [tabValue, setTabValue] = useState(1); // Default to table view (index 1)
+  const [dateRange, setDateRange] = useState('1week'); // Default to 1 week
 
   const formatDateToYMD = (date) => {
     if (!date) return '';
@@ -96,6 +97,8 @@ const ProductHistory = () => {
           date: item['日付'], // Assuming '日付' is the date field from GAS
           stock: item['在庫数'] // Assuming '在庫数' is the stock count field from GAS
         }));
+        // Sort history by date in descending order (most recent first)
+        transformedHistory.sort((a, b) => new Date(b.date) - new Date(a.date));
         setHistory(transformedHistory);
       } catch (e) {
         setError(e.message);
