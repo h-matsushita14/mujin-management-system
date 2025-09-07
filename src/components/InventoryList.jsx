@@ -217,7 +217,6 @@ const InventoryList = () => {
               </TableBody>
             </Table>
           </TableContainer>
-        </Box>
       )}
     </LocalizationProvider>
   );
