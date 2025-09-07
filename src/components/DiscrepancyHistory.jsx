@@ -78,7 +78,7 @@ const DiscrepancyHistory = () => {
           </Select>
         </FormControl>
         <Typography variant="h6">
-          合計差異: {totalDifference}
+          合計差異: {selectedProduct === '全商品' ? '-' : totalDifference}
         </Typography>
       </Box>
 
@@ -96,7 +96,7 @@ const DiscrepancyHistory = () => {
             {sortedFilteredHistory.length > 0 ? (
               sortedFilteredHistory.map((row, index) => (
                 <TableRow key={`${row['商品コード']}-${row['日付']}-${index}`}>
-                  <TableCell>{row['日付']}</TableCell>
+                  <TableCell>{new Date(row['日付']).toISOString().split('T')[0]}</TableCell>
                   <TableCell>{row['商品コード']}</TableCell>
                   <TableCell>{row['商品名']}</TableCell>
                   <TableCell align="right">{row['差異']}</TableCell>
