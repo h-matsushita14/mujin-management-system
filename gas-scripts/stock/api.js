@@ -189,6 +189,7 @@ function doGet(e) {
       }
 
       case 'discrepancy_history': {
+        Logger.log("Entering discrepancy_history case.");
         const inventorySheet = SpreadsheetApp.openById(CONFIG.inventorySheetId).getSheetByName(CONFIG.inventorySheetName);
         if (!inventorySheet) {
           return createJsonResponse({ success: false, error: '在庫データシートが見つかりません。' });
