@@ -200,9 +200,13 @@ function doGet(e) {
           filteredData = matchedRowsData;
         }
         
+        const requiredHistoryFields = ["日付", "在庫数"]; // Only return these fields for history
         const formattedData = filteredData.map(row => {
             const obj = {};
-            headers.forEach((h, i) => obj[h] = row[i]);
+            requiredHistoryFields.forEach(field => {
+                const idx = headerMap[field];
+                if (idx !== undefined) obj[field] = row[idx];
+            });
             return obj;
         });
         return createJsonResponse(formattedData);

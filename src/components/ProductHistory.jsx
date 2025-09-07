@@ -91,15 +91,12 @@ const ProductHistory = () => {
 
         const response = await fetch(url);
         const result = await response.json();
-        if (result.success) {
-            const transformedHistory = result.data.map(item => ({
-              date: item['日付'], // Assuming '日付' is the date field from GAS
-              stock: item['在庫数'] // Assuming '在庫数' is the stock count field from GAS
-            }));
-            setHistory(transformedHistory);
-        } else {
-          throw new Error(result.error || '在庫履歴の取得に失敗しました。');
-        }
+        // The GAS API for inventory_history returns the array directly, not an object with success/data properties.
+        const transformedHistory = result.map(item => ({
+          date: item['日付'], // Assuming '日付' is the date field from GAS
+          stock: item['在庫数'] // Assuming '在庫数' is the stock count field from GAS
+        }));
+        setHistory(transformedHistory);
       } catch (e) {
         setError(e.message);
       } finally {
