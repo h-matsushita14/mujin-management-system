@@ -6,6 +6,7 @@
 [build.environment]
   GAS_MANUALS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbynn3c0bZJ8oRCp7n8nBnnu7LErMMp0-P_WwuJAn3zHnJKxy4c_gGvzneUaChvZtJBn/exec"
   GAS_STOCK_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzcm29NtPBqS_kJ5-S0nfJBYsyMGU91WFlwUdU7sDsB-QE-SdnF4HFpVIoh_Ra2CvON/exec"
+  GAS_PRODUCT_MASTER_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbx7GyQ44FTh-FjrAb_GK0WscWpgR5fIFMHwVMllQB6-ufQY9suiAwVuH4yD2nEHeUrz/exec"
 
 [functions]
   directory = "netlify/functions" # Directory where your Netlify Functions are located
