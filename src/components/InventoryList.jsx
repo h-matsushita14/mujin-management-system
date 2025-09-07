@@ -131,6 +131,15 @@ const InventoryList = () => {
     }
   };
 
+  const handleToday = async () => {
+    setLoading(true);
+    // Reset selectedDate to today's date.
+    // The useEffect will then handle fetching data for today,
+    // and if no data, it will search backward.
+    setSelectedDate(new Date());
+    // setLoading(false) will be handled by useEffect after data fetch
+  };
+
   // 翌日へボタンを無効にする条件
   const isNextDayDisabled = formatDate(selectedDate) === formatDate(today);
 
@@ -157,6 +166,13 @@ const InventoryList = () => {
         </Typography>
         <Button onClick={handleNextDay} endIcon={<ArrowForwardIosIcon />} disabled={isNextDayDisabled}>
           翌日へ
+        </Button>
+        <Button
+          onClick={handleToday}
+          disabled={formatDate(selectedDate) === formatDate(today)}
+          sx={{ ml: 1 }}
+        >
+          当日へ
         </Button>
       </Box>
       <TableContainer component={Paper}>
