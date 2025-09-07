@@ -17,9 +17,8 @@ function doPost(e) {
   try {
     const action = e.parameter.action;
     if (action === 'updateToday') {
-      // ここに在庫更新のロジックを実装するか、aggregation.jsの関数を呼び出す
-      // 例: updateStockData();
-      return createJsonResponse({ success: true, message: '在庫データ更新リクエストを受け付けました。' });
+      updateToday(); // Call the actual update function from aggregation.js
+      return createJsonResponse({ success: true, message: '在庫データが正常に更新されました。' });
     } else {
       return createJsonResponse({ success: false, error: 'Invalid action for POST request.' });
     }

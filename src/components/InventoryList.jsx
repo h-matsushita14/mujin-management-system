@@ -44,7 +44,7 @@ const InventoryList = () => {
 
     // Google Apps Scriptから返されるデータ構造に合わせて調整
     // calculatedInventoriesオブジェクトの値を配列に変換
-    const data = { items: Object.values(rawData.calculatedInventories || {}) };
+    const data = { items: rawData.items || [] };
     
     setInventoryCache(prevCache => {
       const newCache = { ...prevCache, [dateStr]: data };
