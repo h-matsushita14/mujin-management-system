@@ -19,6 +19,7 @@ function createJsonResponse(data) {
  * @returns {GoogleAppsScript.Content.TextOutput} JSON形式のレスポンス。
  */
 function doGet(e) {
+  Logger.log(e.parameter);
   try {
     const page = e.parameter.page;
     if (!page) {

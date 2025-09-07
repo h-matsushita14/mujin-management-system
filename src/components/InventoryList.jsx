@@ -38,8 +38,13 @@ const InventoryList = () => {
     const url = `${EXTERNAL_SERVICES.gasApi.stockApp.url}&page=inventory_latest&date=${dateStr}`;
     const response = await fetch(url);
     if (!response.ok) throw new Error(`API error! status: ${response.status}`);
-    const data = await response.json();
-    if (data.error) throw new Error(data.error);
+    const rawData = await response.json();
+
+    if (rawData.error) throw new Error(rawData.error);
+
+    // Google Apps Scriptから返されるデータ構造に合わせて調整
+    // calculatedInventoriesオブジェクトの値を配列に変換
+    const data = { items: Object.values(rawData.calculatedInventories || {}) };
     
     setInventoryCache(prevCache => {
       const newCache = { ...prevCache, [dateStr]: data };
