@@ -205,10 +205,10 @@ function doGet(e) {
           filteredData = matchedRowsData;
         }
         
-        const requiredHistoryFields = ["日付", "在庫数"]; // Only return these fields for history
+        const requiredDiscrepancyFields = ["商品コード", "商品名", "日付", "差異"]; // Only return these fields for discrepancy history
         const formattedData = filteredData.map(row => {
             const obj = {};
-            requiredHistoryFields.forEach(field => {
+            requiredDiscrepancyFields.forEach(field => {
                 const idx = headerMap[field];
                 if (idx !== undefined) obj[field] = row[idx];
             });

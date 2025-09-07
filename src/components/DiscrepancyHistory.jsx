@@ -29,7 +29,7 @@ const DiscrepancyHistory = () => {
   }, []);
 
   const productNames = useMemo(() => {
-    const names = new Set(history.map(item => item.productName));
+    const names = new Set(history.map(item => item['商品名']));
     return ['全商品', ...Array.from(names)];
   }, [history]);
 
@@ -37,11 +37,11 @@ const DiscrepancyHistory = () => {
     if (!selectedProduct || selectedProduct === '全商品') {
       return history;
     }
-    return history.filter(item => item.productName === selectedProduct);
+    return history.filter(item => item['商品名'] === selectedProduct);
   }, [history, selectedProduct]);
 
   const totalDifference = useMemo(() => {
-    return filteredHistory.reduce((sum, item) => sum + Number(item.difference), 0);
+    return filteredHistory.reduce((sum, item) => sum + Number(item['差異']), 0);
   }, [filteredHistory]);
 
 
@@ -87,11 +87,11 @@ const DiscrepancyHistory = () => {
           <TableBody>
             {filteredHistory.length > 0 ? (
               filteredHistory.map((row, index) => (
-                <TableRow key={`${row.productCode}-${row.date}-${index}`}>
-                  <TableCell>{row.date}</TableCell>
-                  <TableCell>{row.productCode}</TableCell>
-                  <TableCell>{row.productName}</TableCell>
-                  <TableCell align="right">{row.difference}</TableCell>
+                <TableRow key={`${row['商品コード']}-${row['日付']}-${index}`}>
+                  <TableCell>{row['日付']}</TableCell>
+                  <TableCell>{row['商品コード']}</TableCell>
+                  <TableCell>{row['商品名']}</TableCell>
+                  <TableCell align="right">{row['差異']}</TableCell>
                 </TableRow>
               ))
             ) : (
