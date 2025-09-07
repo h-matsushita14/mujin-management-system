@@ -136,7 +136,7 @@ const InventoryList = () => {
   };
 
   const isNextDayDisabled = formatDate(selectedDate) === formatDate(today);
-  const displayedInventory = inventoryCache[formatDate(selectedDate)] || [];
+  const displayedInventory = inventoryCache[formatDate(selectedDate)]?.items || [];
 
   return (
     <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ja}>
