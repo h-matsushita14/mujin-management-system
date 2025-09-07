@@ -15,6 +15,47 @@ const ProductHistory = () => {
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [error, setError] = useState(null);
   const [tabValue, setTabValue] = useState(0);
+  const [dateRange, setDateRange] = useState('all'); // 'all', '1week', '2week', '1month', '3month'
+
+  const formatDateToYMD = (date) => {
+    if (!date) return '';
+    const d = new Date(date);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const calculateDateRange = (range) => {
+    const today = new Date();
+    let startDate = null;
+    let endDate = formatDateToYMD(today); // End date is always today
+
+    switch (range) {
+      case '1week':
+        startDate = new Date(today);
+        startDate.setDate(today.getDate() - 7);
+        break;
+      case '2week':
+        startDate = new Date(today);
+        startDate.setDate(today.getDate() - 14);
+        break;
+      case '1month':
+        startDate = new Date(today);
+        startDate.setMonth(today.getMonth() - 1);
+        break;
+      case '3month':
+        startDate = new Date(today);
+        startDate.setMonth(today.getMonth() - 3);
+        break;
+      case 'all':
+      default:
+        startDate = null; // No start date filter
+        endDate = null; // No end date filter
+        break;
+    }
+    return { startDate: startDate ? formatDateToYMD(startDate) : null, endDate };
+  };
 
   // Fetch managed products list
   useEffect(() => {
@@ -34,7 +75,7 @@ const ProductHistory = () => {
     fetchProducts();
   }, []);
 
-  // Fetch history for selected product
+  // Fetch history for selected product and date range
   useEffect(() => {
     if (!selectedProduct) return;
 
@@ -42,10 +83,20 @@ const ProductHistory = () => {
       try {
         setLoadingHistory(true);
         setHistory([]);
-        const response = await fetch(`/.netlify/functions/gas-proxy?type=stock&page=inventory_history&productCode=${selectedProduct.productCode}`);
+        const { startDate, endDate } = calculateDateRange(dateRange);
+        let url = `/.netlify/functions/gas-proxy?type=stock&page=inventory_history&productCode=${selectedProduct.productCode}`;
+        if (startDate && endDate) {
+          url += `&startDate=${startDate}&endDate=${endDate}`;
+        }
+
+        const response = await fetch(url);
         const result = await response.json();
         if (result.success) {
-          setHistory(result.data);
+            const transformedHistory = result.data.map(item => ({
+              date: item['日付'], // Assuming '日付' is the date field from GAS
+              stock: item['在庫数'] // Assuming '在庫数' is the stock count field from GAS
+            }));
+            setHistory(transformedHistory);
         } else {
           throw new Error(result.error || '在庫履歴の取得に失敗しました。');
         }
@@ -56,7 +107,7 @@ const ProductHistory = () => {
       }
     };
     fetchHistory();
-  }, [selectedProduct]);
+  }, [selectedProduct, dateRange]); // Add dateRange to dependency array
 
   const handleProductSelect = (product) => {
     setSelectedProduct(product);
@@ -65,6 +116,10 @@ const ProductHistory = () => {
 
   const handleTabChange = (event, newValue) => {
     setTabValue(newValue);
+  };
+
+  const handleDateRangeChange = (range) => {
+    setDateRange(range);
   };
 
   if (error) {
@@ -99,58 +154,65 @@ const ProductHistory = () => {
           {selectedProduct ? `${selectedProduct.productName} の在庫履歴` : '商品を選択してください'}
         </Typography>
         {selectedProduct && (
-          loadingHistory ? (
-            <CircularProgress />
-          ) : history.length > 0 ? (
-            <Paper>
-              <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-                <Tabs value={tabValue} onChange={handleTabChange} aria-label="history view tabs">
-                  <Tab label="グラフ" />
-                  <Tab label="表" />
-                </Tabs>
-              </Box>
-              {tabValue === 0 && (
-                <Box p={2} style={{ height: 400 }}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={history} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="date" />
-                      <YAxis />
-                      <Tooltip />
-                      <Legend />
-                      <Line type="monotone" dataKey="stock" name="在庫数" stroke="#8884d8" activeDot={{ r: 8 }} />
-                    </LineChart>
-                  </ResponsiveContainer>
+          <>
+            <Box sx={{ mb: 2 }}>
+              <Button variant={dateRange === 'all' ? 'contained' : 'outlined'} onClick={() => handleDateRangeChange('all')} sx={{ mr: 1 }}>全期間</Button>
+              <Button variant={dateRange === '1week' ? 'contained' : 'outlined'} onClick={() => handleDateRangeChange('1week')} sx={{ mr: 1 }}>過去1週間</Button>
+              <Button variant={dateRange === '2week' ? 'contained' : 'outlined'} onClick={() => handleDateRangeChange('2week')} sx={{ mr: 1 }}>過去2週間</Button>
+              <Button variant={dateRange === '1month' ? 'contained' : 'outlined'} onClick={() => handleDateRangeChange('1month')} sx={{ mr: 1 }}>過去1ヶ月</Button>
+              <Button variant={dateRange === '3month' ? 'contained' : 'outlined'} onClick={() => handleDateRangeChange('3month')}>過去3ヶ月</Button>
+            </Box>
+            {loadingHistory ? (
+              <CircularProgress />
+            ) : history.length > 0 ? (
+              <Paper>
+                <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+                  <Tabs value={tabValue} onChange={handleTabChange} aria-label="history view tabs">
+                    <Tab label="グラフ" />
+                    <Tab label="表" />
+                  </Tabs>
                 </Box>
-              )}
-              {tabValue === 1 && (
-                <TableContainer>
-                  <Table size="small">
-                    <TableHead>
-                      <TableRow>
-                        <TableCell>日付</TableCell>
-                        <TableCell align="right">在庫数</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {history.map((row) => (
-                        <TableRow key={row.date}>
-                          <TableCell>{row.date}</TableCell>
-                          <TableCell align="right">{row.stock}</TableCell>
+                {tabValue === 0 && (
+                  <Box p={2} style={{ height: 400 }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={history} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="date" />
+                        <YAxis />
+                        <Tooltip />
+                        <Legend />
+                        <Line type="monotone" dataKey="stock" name="在庫数" stroke="#8884d8" activeDot={{ r: 8 }} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </Box>
+                )}
+                {tabValue === 1 && (
+                  <TableContainer>
+                    <Table size="small">
+                      <TableHead>
+                        <TableRow>
+                          <TableCell>日付</TableCell>
+                          <TableCell align="right">在庫数</TableCell>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-              )}
-            </Paper>
-          ) : (
-            <Typography>この商品の在庫履歴データはありません。</Typography>
-          )
+                      </TableHead>
+                      <TableBody>
+                        {history.map((row) => (
+                          <TableRow key={row.date}>
+                            <TableCell>{row.date}</TableCell>
+                            <TableCell align="right">{row.stock}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                )}
+              </Paper>
+            ) : (
+              <Typography>この商品の在庫履歴データはありません。</Typography>
+            )}
+          </>
         )}
       </Grid>
     </Grid>
   );
 };
-
-export default ProductHistory;

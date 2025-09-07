@@ -137,29 +137,40 @@ function doGet(e) {
           const productCode = e.parameter.productCode;
           if (!productCode) return createJsonResponse({ success: false, error: 'productCode is missing.' });
           const codeColIndex = headerMap["商品コード"];
-          if (codeColIndex === undefined) return createJsonResponse({ success: false, error: '「商品コード」列が見つかりません。' });
+          const dateColIndex = headerMap["日付"]; // Get date column index
+          if (codeColIndex === undefined || dateColIndex === undefined) return createJsonResponse({ success: false, error: '「商品コード」または「日付」列が見つかりません。' });
+
+          const startDateParam = e.parameter.startDate;
+          const endDateParam = e.parameter.endDate;
+          const filterByDate = startDateParam && endDateParam;
+          let startDate = null;
+          let endDate = null;
+          if (filterByDate) {
+            startDate = getStartOfDay(new Date(startDateParam));
+            endDate = getStartOfDay(new Date(endDateParam));
+          }
 
           const lastRow = inventorySheet.getLastRow();
           if (lastRow < 2) return createJsonResponse([]);
 
-          const productCodeColumnData = inventorySheet.getRange(2, codeColIndex + 1, lastRow - 1, 1).getValues();
-          const matchingRowNumbers = [];
+          const allInventoryData = inventorySheet.getRange(2, 1, lastRow - 1, headers.length).getValues(); // Get all data to filter
+          const matchingRowsData = [];
 
-          productCodeColumnData.forEach((row, index) => {
-            const currentRowNumber = index + 2;
-            if (normalize(row[0]) === normalize(productCode)) {
-              matchingRowNumbers.push(currentRowNumber);
+          allInventoryData.forEach(row => {
+            const rowProductCode = normalize(row[codeColIndex]);
+            const rowDate = getStartOfDay(new Date(row[dateColIndex]));
+
+            if (rowProductCode === normalize(productCode)) {
+              if (filterByDate) {
+                if (rowDate >= startDate && rowDate <= endDate) {
+                  matchingRowsData.push(row);
+                }
+              } else {
+                matchingRowsData.push(row);
+              }
             }
           });
-
-          const matchedRowsData = [];
-          if (matchingRowNumbers.length > 0) {
-            matchingRowNumbers.forEach(rowNum => {
-              const fullRow = inventorySheet.getRange(rowNum, 1, 1, headers.length).getValues()[0];
-              matchedRowsData.push(fullRow);
-            });
-          }
-          filteredData = matchedRowsData;
+          filteredData = matchingRowsData;
 
         } else { // discrepancy_history
           const discrepancyColIndex = headerMap["差異"];
