@@ -27,37 +27,70 @@ function doGet(e) {
 
     switch (page) {
       case 'inventory_latest': {
+        const dateParam = e.parameter.date;
+        const targetDateYMD = dateParam ? formatDateToYMD(new Date(dateParam)) : formatDateToYMD(new Date());
+        const cache = CacheService.getScriptCache();
+        const cacheKey = `inventory_latest_${targetDateYMD}`;
+        const cachedData = cache.get(cacheKey);
+
+        if (cachedData) {
+          Logger.log(`Cache hit for ${cacheKey}`);
+          return createJsonResponse(JSON.parse(cachedData));
+        }
+
+        Logger.log(`Cache miss for ${cacheKey}. Fetching from spreadsheet.`);
         const inventorySheet = SpreadsheetApp.openById(CONFIG.inventorySheetId).getSheetByName(CONFIG.inventorySheetName);
         if (!inventorySheet) {
           return createJsonResponse({ success: false, error: '在庫データシートが見つかりません。' });
         }
-        const inventoryData = inventorySheet.getDataRange().getValues();
-        const headers = inventoryData[0];
-        const headerMap = createHeaderMap(headers); // aggregation.jsの関数
+        
+        const headers = inventorySheet.getRange(1, 1, 1, inventorySheet.getLastColumn()).getValues()[0];
+        const headerMap = createHeaderMap(headers);
+        const dateColIndex = headerMap["日付"];
+        if (dateColIndex === undefined) return createJsonResponse({ success: false, error: '「日付」列が見つかりません。' });
 
-        const dateParam = e.parameter.date;
-        const targetDateYMD = dateParam ? formatDateToYMD(new Date(dateParam)) : formatDateToYMD(new Date());
-        const dateCol = headerMap["日付"];
-        if (dateCol === undefined) return createJsonResponse({ success: false, error: '「日付」列が見つかりません。' });
+        const lastRow = inventorySheet.getLastRow();
+        if (lastRow < 2) {
+          const result = { success: true, date: targetDateYMD, items: [] };
+          cache.put(cacheKey, JSON.stringify(result), 172800); // Cache for 2 days (172800 seconds)
+          return createJsonResponse(result);
+        }
 
-        const filteredData = inventoryData.slice(1).filter(row => {
-          return row[dateCol] && formatDateToYMD(new Date(row[dateCol])) === targetDateYMD;
+        // 🔹 日付列だけを先にスキャンして対象行を特定
+        const dateColumnData = inventorySheet.getRange(2, dateColIndex + 1, lastRow - 1, 1).getValues();
+        const matchingRowNumbers = [];
+
+        dateColumnData.forEach((row, index) => {
+          const currentRowNumber = index + 2; // スプレッドシートの行番号 (1-based)
+          const rowDate = row[0]; // dateColumnData は1列の2D配列
+          if (rowDate && formatDateToYMD(new Date(rowDate)) === targetDateYMD) {
+            matchingRowNumbers.push(currentRowNumber);
+          }
         });
 
+        const matchedRowsData = [];
+        if (matchingRowNumbers.length > 0) {
+          // 🔹 対象行の全データを取得
+          matchingRowNumbers.forEach(rowNum => {
+            const fullRow = inventorySheet.getRange(rowNum, 1, 1, headers.length).getValues()[0];
+            matchedRowsData.push(fullRow);
+          });
+        }
+        
+        // 🔹 必要な列のみ返す
         const requiredFields = ["商品コード", "商品名", "在庫数", "在庫割合", "理論在庫", "実在庫数", "差異", "賞味期限", "販売可能日数"];
-        const fieldIndices = requiredFields.map(field => ({ name: field, index: headerMap[field] }));
-
-        const formattedData = filteredData.map(row => {
+        const formattedData = matchedRowsData.map(row => {
           const obj = {};
-          fieldIndices.forEach(field => {
-            if (field.index !== undefined) {
-              obj[field.name] = row[field.index];
-            }
+          requiredFields.forEach(field => {
+            const idx = headerMap[field];
+            if (idx !== undefined) obj[field] = row[idx];
           });
           return obj;
         });
 
-        return createJsonResponse(formattedData);
+        const result = { success: true, date: targetDateYMD, items: formattedData };
+        cache.put(cacheKey, JSON.stringify(result), 172800); // Cache for 2 days (172800 seconds)
+        return createJsonResponse(result);
       }
 
       case 'managed_products': {
@@ -86,12 +119,58 @@ function doGet(e) {
 
         if (page === 'inventory_history') {
           const productCode = e.parameter.productCode;
-          if (!productCode) return createJsonResponse({ success: false, error: 'productCode parameter is missing.' });
-          const codeCol = headerMap["商品コード"];
-          filteredData = inventoryData.slice(1).filter(row => normalize(row[codeCol]) === normalize(productCode));
-        } else {
-          const discrepancyCol = headerMap["差異"];
-          filteredData = inventoryData.slice(1).filter(row => row[discrepancyCol] !== null && row[discrepancyCol] !== '' && row[discrepancyCol] != 0);
+          if (!productCode) return createJsonResponse({ success: false, error: 'productCode is missing.' });
+          const codeColIndex = headerMap["商品コード"];
+          if (codeColIndex === undefined) return createJsonResponse({ success: false, error: '「商品コード」列が見つかりません。' });
+
+          const lastRow = inventorySheet.getLastRow();
+          if (lastRow < 2) return createJsonResponse([]);
+
+          const productCodeColumnData = inventorySheet.getRange(2, codeColIndex + 1, lastRow - 1, 1).getValues();
+          const matchingRowNumbers = [];
+
+          productCodeColumnData.forEach((row, index) => {
+            const currentRowNumber = index + 2;
+            if (normalize(row[0]) === normalize(productCode)) {
+              matchingRowNumbers.push(currentRowNumber);
+            }
+          });
+
+          const matchedRowsData = [];
+          if (matchingRowNumbers.length > 0) {
+            matchingRowNumbers.forEach(rowNum => {
+              const fullRow = inventorySheet.getRange(rowNum, 1, 1, headers.length).getValues()[0];
+              matchedRowsData.push(fullRow);
+            });
+          }
+          filteredData = matchedRowsData;
+
+        } else { // discrepancy_history
+          const discrepancyColIndex = headerMap["差異"];
+          if (discrepancyColIndex === undefined) return createJsonResponse({ success: false, error: '「差異」列が見つかりません。' });
+
+          const lastRow = inventorySheet.getLastRow();
+          if (lastRow < 2) return createJsonResponse([]);
+
+          const discrepancyColumnData = inventorySheet.getRange(2, discrepancyColIndex + 1, lastRow - 1, 1).getValues();
+          const matchingRowNumbers = [];
+
+          discrepancyColumnData.forEach((row, index) => {
+            const currentRowNumber = index + 2;
+            const discrepancyValue = row[0];
+            if (discrepancyValue !== null && discrepancyValue !== '' && discrepancyValue != 0) {
+              matchingRowNumbers.push(currentRowNumber);
+            }
+          });
+
+          const matchedRowsData = [];
+          if (matchingRowNumbers.length > 0) {
+            matchingRowNumbers.forEach(rowNum => {
+              const fullRow = inventorySheet.getRange(rowNum, 1, 1, headers.length).getValues()[0];
+              matchedRowsData.push(fullRow);
+            });
+          }
+          filteredData = matchedRowsData;
         }
         
         const formattedData = filteredData.map(row => {
@@ -106,8 +185,7 @@ function doGet(e) {
         return createJsonResponse({ success: false, error: 'Invalid page parameter.' });
     }
   } catch (error) {
-    Logger.log(`doGet error: ${error.message}
-${error.stack}`);
+    Logger.log(`doGet error: ${error.message}\n${error.stack}`);
     return createJsonResponse({ success: false, error: `An unexpected error occurred: ${error.message}` });
   }
 }
