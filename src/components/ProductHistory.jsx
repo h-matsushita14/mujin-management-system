@@ -98,7 +98,7 @@ const ProductHistory = () => {
           stock: item['在庫数'] // Assuming '在庫数' is the stock count field from GAS
         }));
         // Sort history by date in descending order (most recent first)
-        transformedHistory.sort((a, b) => new Date(b.date) - new Date(a.date));
+        transformedHistory.sort((a, b) => new Date(a.date) - new Date(b.date));
         setHistory(transformedHistory);
       } catch (e) {
         setError(e.message);
@@ -121,6 +121,10 @@ const ProductHistory = () => {
   const handleDateRangeChange = (range) => {
     setDateRange(range);
   };
+
+  const tableHistory = useMemo(() => {
+    return [...history].sort((a, b) => new Date(b.date) - new Date(a.date)); // Descending for table
+  }, [history]);
 
   if (error) {
     return <Alert severity="error">{error}</Alert>;
@@ -196,7 +200,7 @@ const ProductHistory = () => {
                         </TableRow>
                       </TableHead>
                       <TableBody>
-                        {history.map((row) => (
+                        {tableHistory.map((row) => (
                           <TableRow key={row.date}>
                             <TableCell>{row.date}</TableCell>
                             <TableCell align="right">{row.stock}</TableCell>

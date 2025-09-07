@@ -16,6 +16,7 @@ const DiscrepancyHistory = () => {
         setLoading(true);
         const response = await fetch(`/.netlify/functions/gas-proxy?page=discrepancy_history`);
         const result = await response.json();
+        console.log("GAS response data for discrepancy_history:", result);
         // GASは直接差異履歴の配列を返すように修正した
         setHistory(result); // resultは直接配列
       } catch (e) {
@@ -39,6 +40,13 @@ const DiscrepancyHistory = () => {
     }
     return history.filter(item => item['商品名'] === selectedProduct);
   }, [history, selectedProduct]);
+
+  const sortedFilteredHistory = useMemo(() => {
+    const sorted = [...filteredHistory].sort((a, b) => {
+      return new Date(b['日付']) - new Date(a['日付']); // Descending order
+    });
+    return sorted;
+  }, [filteredHistory]);
 
   const totalDifference = useMemo(() => {
     return filteredHistory.reduce((sum, item) => sum + Number(item['差異']), 0);
@@ -85,8 +93,8 @@ const DiscrepancyHistory = () => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {filteredHistory.length > 0 ? (
-              filteredHistory.map((row, index) => (
+            {sortedFilteredHistory.length > 0 ? (
+              sortedFilteredHistory.map((row, index) => (
                 <TableRow key={`${row['商品コード']}-${row['日付']}-${index}`}>
                   <TableCell>{row['日付']}</TableCell>
                   <TableCell>{row['商品コード']}</TableCell>
