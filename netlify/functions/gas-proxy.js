@@ -21,25 +21,38 @@ exports.handler = async function(event, context) {
   }
 
   try {
-    // クエリパラメータをGASに転送
-    const paramsToForward = new URLSearchParams();
-    for (const key in event.queryStringParameters) {
-      if (key !== 'type') {
-        paramsToForward.append(key, event.queryStringParameters[key]);
+    let gasUrl = GAS_WEB_APP_URL;
+    let fetchOptions = {};
+
+    if (event.httpMethod === 'GET') {
+      // クエリパラメータをGASに転送
+      const paramsToForward = new URLSearchParams();
+      for (const key in event.queryStringParameters) {
+        if (key !== 'type') {
+          paramsToForward.append(key, event.queryStringParameters[key]);
+        }
       }
+      const queryString = paramsToForward.toString();
+      gasUrl = `${GAS_WEB_APP_URL}?${queryString}`;
+      fetchOptions.method = 'GET'; // doGetを呼び出すためGETを使用
+    } else if (event.httpMethod === 'POST') {
+      // POSTリクエストのボディをGASに転送
+      fetchOptions.method = 'POST'; // doPostを呼び出すためPOSTを使用
+      fetchOptions.headers = {
+        'Content-Type': 'application/x-www-form-urlencoded', // React側と合わせる
+      };
+      fetchOptions.body = event.body; // event.bodyはすでにURLSearchParams形式の文字列
+    } else {
+      return {
+        statusCode: 405,
+        body: JSON.stringify({ error: 'Method Not Allowed' }),
+      };
     }
-    const queryString = paramsToForward.toString();
-    const gasUrl = `${GAS_WEB_APP_URL}?${queryString}`;
 
     console.log('Fetching from GAS URL:', gasUrl); // Debug log
+    console.log('Fetch options:', fetchOptions); // Debug log
 
-    const response = await fetch(gasUrl, {
-      method: 'GET', // doGetを呼び出すためGETを使用
-      // headers: {
-      //   'Content-Type': 'application/json',
-      //   // 必要に応じて追加のヘッダー
-      // },
-    });
+    const response = await fetch(gasUrl, fetchOptions);
 
     console.log('GAS response status:', response.status); // Debug log
 
