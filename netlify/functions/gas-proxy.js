@@ -6,6 +6,7 @@ exports.handler = async function(event, context) {
   const GAS_API_URLS = {
     manuals: process.env.GAS_MANUALS_WEB_APP_URL,
     stock: process.env.GAS_STOCK_WEB_APP_URL,
+    productMaster: process.env.GAS_PRODUCT_MASTER_WEB_APP_URL,
   };
 
   const type = event.queryStringParameters.type || 'stock'; // Default to 'stock'

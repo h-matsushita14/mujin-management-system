@@ -20,7 +20,7 @@ const ProductSettingsPage = () => {
   const fetchProducts = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await fetch(`/.netlify/functions/gas-proxy?type=stock&page=managed_products`);
+      const response = await fetch(`/.netlify/functions/gas-proxy?type=productMaster&page=managed_products`);
       const result = await response.json();
 
       const formattedProducts = result.map(p => ({
@@ -121,19 +121,19 @@ const ProductSettingsPage = () => {
           <Table sx={{ minWidth: 1200 }} aria-label="managed products table">
             <TableHead>
               <TableRow>
-                <TableCell>商品コード</TableCell>
-                <TableCell>商品名</TableCell>
-                <TableCell>netDoA商品コード</TableCell>
-                <TableCell>賞味期限（日数）</TableCell>
-                <TableCell>アラート日数</TableCell>
-                <TableCell>基準在庫</TableCell>
-                <TableCell>税込売価</TableCell>
-                <TableCell>発注点</TableCell>
-                <TableCell>納品ロット</TableCell>
-                <TableCell>賞味期限（納品日起点）</TableCell>
-                <TableCell>在庫管理</TableCell>
-                <TableCell>画像データ</TableCell>
-                <TableCell>操作</TableCell>
+                <TableCell sx={{ whiteSpace: 'nowrap' }}>商品コード</TableCell>
+                <TableCell sx={{ whiteSpace: 'nowrap' }}>商品名</TableCell>
+                <TableCell sx={{ whiteSpace: 'nowrap' }}>netDoA商品コード</TableCell>
+                <TableCell sx={{ whiteSpace: 'nowrap' }}>賞味期限（日数）</TableCell>
+                <TableCell sx={{ whiteSpace: 'nowrap' }}>アラート日数</TableCell>
+                <TableCell sx={{ whiteSpace: 'nowrap' }}>基準在庫</TableCell>
+                <TableCell sx={{ whiteSpace: 'nowrap' }}>税込売価</TableCell>
+                <TableCell sx={{ whiteSpace: 'nowrap' }}>発注点</TableCell>
+                <TableCell sx={{ whiteSpace: 'nowrap' }}>納品ロット</TableCell>
+                <TableCell sx={{ whiteSpace: 'nowrap' }}>賞味期限（納品日起点）</TableCell>
+                <TableCell sx={{ whiteSpace: 'nowrap' }}>在庫管理</TableCell>
+                <TableCell sx={{ whiteSpace: 'nowrap' }}>画像データ</TableCell>
+                <TableCell sx={{ whiteSpace: 'nowrap' }}>操作</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
