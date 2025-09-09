@@ -26,6 +26,16 @@ const ProductSettingsPage = () => {
       const formattedProducts = result.map(p => ({
         productCode: p.productCode || '',
         productName: p.productName || '',
+        netDoAProductCode: p['netDoA商品コード'] || '',
+        expirationDays: p['賞味期限（日数）'] || '',
+        alertDays: p['アラート日数'] || '',
+        standardStock: p['基準在庫'] || '',
+        taxIncludedSellingPrice: p['税込売価'] || '',
+        reorderPoint: p['発注点'] || '',
+        deliveryLot: p['納品ロット'] || '',
+        expirationDeliveryBasis: p['賞味期限（納品日起点）'] || '',
+        inventoryManagement: p['在庫管理'] || '',
+        imageData: p['画像データ'] || '',
       }));
       setProducts(formattedProducts);
     } catch (e) {
@@ -108,11 +118,21 @@ const ProductSettingsPage = () => {
         <Alert severity="info">登録されている商品がありません。</Alert>
       ) : (
         <TableContainer component={Paper}>
-          <Table sx={{ minWidth: 650 }} aria-label="managed products table">
+          <Table sx={{ minWidth: 1200 }} aria-label="managed products table">
             <TableHead>
               <TableRow>
                 <TableCell>商品コード</TableCell>
                 <TableCell>商品名</TableCell>
+                <TableCell>netDoA商品コード</TableCell>
+                <TableCell>賞味期限（日数）</TableCell>
+                <TableCell>アラート日数</TableCell>
+                <TableCell>基準在庫</TableCell>
+                <TableCell>税込売価</TableCell>
+                <TableCell>発注点</TableCell>
+                <TableCell>納品ロット</TableCell>
+                <TableCell>賞味期限（納品日起点）</TableCell>
+                <TableCell>在庫管理</TableCell>
+                <TableCell>画像データ</TableCell>
                 <TableCell>操作</TableCell>
               </TableRow>
             </TableHead>
@@ -121,6 +141,16 @@ const ProductSettingsPage = () => {
                 <TableRow key={product.productCode}>
                   <TableCell>{product.productCode}</TableCell>
                   <TableCell>{product.productName}</TableCell>
+                  <TableCell>{product.netDoAProductCode}</TableCell>
+                  <TableCell>{product.expirationDays}</TableCell>
+                  <TableCell>{product.alertDays}</TableCell>
+                  <TableCell>{product.standardStock}</TableCell>
+                  <TableCell>{product.taxIncludedSellingPrice}</TableCell>
+                  <TableCell>{product.reorderPoint}</TableCell>
+                  <TableCell>{product.deliveryLot}</TableCell>
+                  <TableCell>{product.expirationDeliveryBasis}</TableCell>
+                  <TableCell>{product.inventoryManagement}</TableCell>
+                  <TableCell>{product.imageData}</TableCell>
                   <TableCell>
                     <Button size="small" onClick={() => handleAddEditClick(product)}>編集</Button>
                     <Button size="small" color="error" onClick={() => handleDeleteClick(product)}>削除</Button>
