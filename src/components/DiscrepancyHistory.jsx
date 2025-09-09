@@ -63,7 +63,7 @@ const DiscrepancyHistory = () => {
 
   return (
     <Box>
-      <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <Box sx={{ mb: 2 }}>
         <FormControl sx={{ minWidth: 240 }}>
           <InputLabel id="product-filter-label">商品で絞り込み</InputLabel>
           <Select
@@ -77,7 +77,7 @@ const DiscrepancyHistory = () => {
             ))}
           </Select>
         </FormControl>
-        <Typography variant="h6">
+        <Typography variant="h6" sx={{ mt: 2 }}>
           合計差異: {selectedProduct === '全商品' ? '-' : totalDifference}
         </Typography>
       </Box>
