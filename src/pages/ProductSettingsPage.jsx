@@ -24,8 +24,8 @@ const ProductSettingsPage = () => {
       const result = await response.json();
 
       const formattedProducts = result.map(p => ({
-        productCode: p.productCode || '',
-        productName: p.productName || '',
+        productCode: p['商品コード'] || '', // Changed from p.productCode
+        productName: p['商品名'] || '',     // Changed from p.productName
         netDoAProductCode: p['netDoA商品コード'] || '',
         expirationDays: p['賞味期限（日数）'] || '',
         alertDays: p['アラート日数'] || '',
@@ -121,6 +121,7 @@ const ProductSettingsPage = () => {
           <Table sx={{ minWidth: 1200 }} aria-label="managed products table">
             <TableHead>
               <TableRow>
+                <TableCell sx={{ whiteSpace: 'nowrap' }}>操作</TableCell> {/* Moved to first */}
                 <TableCell sx={{ whiteSpace: 'nowrap' }}>商品コード</TableCell>
                 <TableCell sx={{ whiteSpace: 'nowrap' }}>商品名</TableCell>
                 <TableCell sx={{ whiteSpace: 'nowrap' }}>netDoA商品コード</TableCell>
@@ -133,12 +134,15 @@ const ProductSettingsPage = () => {
                 <TableCell sx={{ whiteSpace: 'nowrap' }}>賞味期限（納品日起点）</TableCell>
                 <TableCell sx={{ whiteSpace: 'nowrap' }}>在庫管理</TableCell>
                 <TableCell sx={{ whiteSpace: 'nowrap' }}>画像データ</TableCell>
-                <TableCell sx={{ whiteSpace: 'nowrap' }}>操作</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {products.map((product) => (
                 <TableRow key={product.productCode}>
+                  <TableCell>
+                    <Button size="small" onClick={() => handleAddEditClick(product)}>編集</Button>
+                    <Button size="small" color="error" onClick={() => handleDeleteClick(product)}>削除</Button>
+                  </TableCell> {/* Moved to first */}
                   <TableCell>{product.productCode}</TableCell>
                   <TableCell>{product.productName}</TableCell>
                   <TableCell>{product.netDoAProductCode}</TableCell>
@@ -151,10 +155,6 @@ const ProductSettingsPage = () => {
                   <TableCell>{product.expirationDeliveryBasis}</TableCell>
                   <TableCell>{product.inventoryManagement}</TableCell>
                   <TableCell>{product.imageData}</TableCell>
-                  <TableCell>
-                    <Button size="small" onClick={() => handleAddEditClick(product)}>編集</Button>
-                    <Button size="small" color="error" onClick={() => handleDeleteClick(product)}>削除</Button>
-                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
