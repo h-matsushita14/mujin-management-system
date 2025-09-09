@@ -130,7 +130,7 @@ function doGet(e) {
         const inventoryData = inventorySheet.getDataRange().getValues();
         const headers = inventoryData[0];
         const headerMap = createHeaderMap(headers);
-        const filteredData = [];
+        let filteredData = [];
 
         const productCode = e.parameter.productCode;
         if (!productCode) return createJsonResponse({ success: false, error: 'productCode is missing.' });
@@ -197,7 +197,7 @@ function doGet(e) {
         const inventoryData = inventorySheet.getDataRange().getValues();
         const headers = inventoryData[0];
         const headerMap = createHeaderMap(headers);
-        const filteredData = [];
+        let filteredData = [];
 
         const discrepancyColIndex = headerMap["差異"];
         if (discrepancyColIndex === undefined) return createJsonResponse({ success: false, error: '「差異」列が見つかりません。' });
@@ -218,7 +218,7 @@ function doGet(e) {
 
         const matchedRowsData = [];
         if (matchingRowNumbers.length > 0) {
-          matchingRowsData.forEach(rowNum => {
+          matchingRowNumbers.forEach(rowNum => {
             const fullRow = inventorySheet.getRange(rowNum, 1, 1, headers.length).getValues()[0];
             matchedRowsData.push(fullRow);
           });

@@ -13,7 +13,7 @@ function SalesPage() {
         sx={{
           position: 'relative',
           width: '100%',
-          paddingBottom: '75%', // Aspect ratio 4:3 (height / width * 100) for 600x443, approx 73.8%
+          paddingBottom: '73.8%', // Aspect ratio for 600x443 is approx 73.8%
           height: 0,
           overflow: 'hidden',
           backgroundColor: '#f0f0f0', // Placeholder background
