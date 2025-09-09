@@ -88,22 +88,20 @@ const DiscrepancyHistory = () => {
       {sortedFilteredHistory.length > 0 ? (
         sortedFilteredHistory.map((row, index) => (
           <Paper key={`${row['商品コード']}-${row['日付']}-${index}`} elevation={2} sx={{ p: 2, mb: 2 }}>
-            <Grid container spacing={1} alignItems="center">
-              <Grid item xs={8}>
-                <Typography variant="h6" component="div">{row['商品名']}</Typography>
-                <Typography variant="body2" color="text.secondary">{row['商品コード']}</Typography>
-              </Grid>
-              <Grid item xs={4} sx={{ textAlign: 'right' }}>
-                <Typography variant="h5" component="div" color={row['差異'] > 0 ? 'primary.main' : 'error.main'}>
-                  {row['差異'] > 0 ? `+${row['差異']}` : row['差異']}
-                </Typography>
-              </Grid>
-              <Grid item xs={12} sx={{ textAlign: 'right' }}>
-                <Typography variant="body2" color="text.secondary">
-                  {new Date(row['日付']).toISOString().split('T')[0]}
-                </Typography>
-              </Grid>
-            </Grid>
+            <Typography variant="body2" color="text.secondary">
+              日付: {new Date(row['日付']).toISOString().split('T')[0]}
+            </Typography>
+            <Typography variant="body1" sx={{ mt: 1.5 }}>
+              商品コード: {row['商品コード']}
+            </Typography>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', mt: 0.5 }}>
+              <Typography variant="h6" component="div">
+                {row['商品名']}
+              </Typography>
+              <Typography variant="h5" component="div" color={row['差異'] > 0 ? 'primary.main' : 'error.main'}>
+                差異: {row['差異'] > 0 ? `+${row['差異']}` : row['差異']}
+              </Typography>
+            </Box>
           </Paper>
         ))
       ) : (
