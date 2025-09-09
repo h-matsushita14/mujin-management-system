@@ -135,6 +135,14 @@ function Header() {
                   component={Link}
                   to={item.path}
                   startIcon={item.icon}
+                  sx={{
+                    flexDirection: 'column',
+                    minWidth: 'auto',
+                    padding: '6px 8px',
+                    '& .MuiButton-startIcon': {
+                      margin: 0,
+                    },
+                  }}
                 >
                   {item.title}
                 </Button>
