@@ -206,7 +206,7 @@ const InventoryList = () => {
                   在庫: <Box component="span" sx={{ fontWeight: 'bold' }}>{item['在庫数']}</Box>
                 </Typography>
                 <Typography variant="body1" component="div" noWrap sx={{ color: isExpiringSoon ? 'error.main' : 'inherit', fontWeight: 'bold' }}>
-                  販売可能: {item['販売可能日数'] !== null && item['販売可能日数'] !== undefined ? item['販売可能日数'] : 'N/A'}
+                  販売可能: {item['販売可能日数'] !== null && item['販売可能日数'] !== undefined ? item['販売可能日数'] : 'N/A'} 日
                 </Typography>
                 <Typography variant="body2" color="text.secondary" noWrap>
                   賞味期限: {formatDate(item['賞味期限'])}
