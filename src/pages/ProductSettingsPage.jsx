@@ -2,7 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   Container, Typography, Box, Paper, Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, CircularProgress, Alert, Button, TextField, Dialog,
-  DialogActions, DialogContent, DialogTitle, useMediaQuery, useTheme, DialogContentText
+  DialogActions, DialogContent, DialogTitle, useMediaQuery, useTheme, DialogContentText,
+  FormControl, FormLabel, RadioGroup, FormControlLabel, Radio, MenuItem
 } from '@mui/material';
 
 const ProductSettingsPage = () => {
@@ -21,7 +22,7 @@ const ProductSettingsPage = () => {
     reorderPoint: '',
     deliveryLot: '',
     expirationDeliveryBasis: '',
-    inventoryManagement: '',
+    inventoryManagement: '有', // Default to '有'
     imageData: '',
   });
 
@@ -54,7 +55,7 @@ const ProductSettingsPage = () => {
         reorderPoint: p['発注点'] || '',
         deliveryLot: p['納品ロット'] || '',
         expirationDeliveryBasis: p['賞味期限（納品日起点）'] || '',
-        inventoryManagement: p['在庫管理'] || '',
+        inventoryManagement: p['在庫管理'] || '有',
         imageData: p['画像データ'] || '',
       }));
       setProducts(formattedProducts);
@@ -81,7 +82,7 @@ const ProductSettingsPage = () => {
       reorderPoint: '',
       deliveryLot: '',
       expirationDeliveryBasis: '',
-      inventoryManagement: '',
+      inventoryManagement: '有',
       imageData: '',
     });
     setOpenDialog(true);
@@ -158,6 +159,8 @@ const ProductSettingsPage = () => {
       setError(e.message);
     }
   };
+
+  const expirationDeliveryBasisOptions = ['180', '90', '製造元賞味', '賞味無'];
 
   if (error) {
     return <Alert severity="error">{error}</Alert>;
@@ -279,7 +282,15 @@ const ProductSettingsPage = () => {
             fullWidth
             variant="standard"
             value={currentProduct?.expirationDays || ''}
-            onChange={(e) => setCurrentProduct({ ...currentProduct, expirationDays: e.target.value })}
+            onChange={(e) => {
+              const newExpirationDays = e.target.value;
+              const newAlertDays = newExpirationDays ? Math.round(parseInt(newExpirationDays, 10) / 3) : '';
+              setCurrentProduct({ 
+                ...currentProduct, 
+                expirationDays: newExpirationDays, 
+                alertDays: newAlertDays.toString() 
+              });
+            }}
           />
           <TextField
             margin="dense"
@@ -335,22 +346,31 @@ const ProductSettingsPage = () => {
             margin="dense"
             id="expirationDeliveryBasis"
             label="賞味期限（納品日起点）"
-            type="text"
+            select
             fullWidth
             variant="standard"
             value={currentProduct?.expirationDeliveryBasis || ''}
             onChange={(e) => setCurrentProduct({ ...currentProduct, expirationDeliveryBasis: e.target.value })}
-          />
-          <TextField
-            margin="dense"
-            id="inventoryManagement"
-            label="在庫管理"
-            type="text"
-            fullWidth
-            variant="standard"
-            value={currentProduct?.inventoryManagement || ''}
-            onChange={(e) => setCurrentProduct({ ...currentProduct, inventoryManagement: e.target.value })}
-          />
+          >
+            {expirationDeliveryBasisOptions.map((option) => (
+              <MenuItem key={option} value={option}>
+                {option}
+              </MenuItem>
+            ))}
+          </TextField>
+          <FormControl component="fieldset" margin="normal">
+            <FormLabel component="legend">在庫管理</FormLabel>
+            <RadioGroup
+              row
+              aria-label="inventory management"
+              name="inventoryManagement"
+              value={currentProduct?.inventoryManagement || '有'}
+              onChange={(e) => setCurrentProduct({ ...currentProduct, inventoryManagement: e.target.value })}
+            >
+              <FormControlLabel value="有" control={<Radio />} label="有" />
+              <FormControlLabel value="無" control={<Radio />} label="無" />
+            </RadioGroup>
+          </FormControl>
           <TextField
             margin="dense"
             id="imageData"
