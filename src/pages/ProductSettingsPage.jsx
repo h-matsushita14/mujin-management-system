@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   Container, Typography, Box, Paper, Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, CircularProgress, Alert, Button, TextField, Dialog,
-  DialogActions, DialogContent, DialogTitle
+  DialogActions, DialogContent, DialogTitle, useMediaQuery, useTheme, DialogContentText
 } from '@mui/material';
 
 const ProductSettingsPage = () => {
@@ -29,6 +29,13 @@ const ProductSettingsPage = () => {
   const [openDeleteConfirmDialog, setOpenDeleteConfirmDialog] = useState(false);
   const [productToDelete, setProductToDelete] = useState(null); // Stores the product object to be deleted
   const [deleteStep, setDeleteStep] = useState(1); // 1 for first confirm, 2 for second
+
+  // State for details dialog
+  const [openDetailsDialog, setOpenDetailsDialog] = useState(false);
+  const [productForDetails, setProductForDetails] = useState(null);
+
+  const theme = useTheme();
+  const isSmallScreen = useMediaQuery(theme.breakpoints.down('md'));
 
   const fetchProducts = useCallback(async () => {
     try {
@@ -80,16 +87,25 @@ const ProductSettingsPage = () => {
     setOpenDialog(true);
   };
 
-  // Modified handleDeleteClick to open custom dialog
   const handleDeleteClick = (product) => {
     setProductToDelete(product);
     setDeleteStep(1);
     setOpenDeleteConfirmDialog(true);
   };
 
+  const handleDetailsClick = (product) => {
+    setProductForDetails(product);
+    setOpenDetailsDialog(true);
+  };
+
+  const handleDetailsClose = () => {
+    setOpenDetailsDialog(false);
+    setProductForDetails(null);
+  };
+
   const handleDialogClose = () => {
     setOpenDialog(false);
-    setCurrentProduct(null); // Reset currentProduct after closing dialog
+    setCurrentProduct(null);
   };
 
   const handleSaveProduct = async () => {
@@ -120,27 +136,24 @@ const ProductSettingsPage = () => {
     }
   };
 
-  // Functions for delete confirmation dialog
   const handleDeleteConfirmClose = () => {
     setOpenDeleteConfirmDialog(false);
     setProductToDelete(null);
-    setDeleteStep(1); // Reset for next time
+    setDeleteStep(1);
   };
 
   const handleFirstConfirm = () => {
-    setDeleteStep(2); // Move to second step
+    setDeleteStep(2);
   };
 
   const handleSecondConfirm = async () => {
     if (!productToDelete) return;
     try {
-      // TODO: Implement actual delete API call here using productToDelete.productCode
       console.log('Deleting product:', productToDelete.productCode);
-      // Simulate API call for now
       await new Promise(resolve => setTimeout(resolve, 500)); 
 
       handleDeleteConfirmClose();
-      fetchProducts(); // Refetch products after successful deletion
+      fetchProducts();
     } catch (e) {
       setError(e.message);
     }
@@ -153,7 +166,7 @@ const ProductSettingsPage = () => {
   return (
     <Container maxWidth="lg" sx={{ mt: 4 }}>
       <Typography variant="h4" component="h1" gutterBottom>
-        取り扱い商品設定
+        取扱商品設定
       </Typography>
       <Box sx={{ mb: 2 }}>
         <Button variant="contained" onClick={() => handleAddEditClick()}>新規商品追加</Button>
@@ -165,43 +178,57 @@ const ProductSettingsPage = () => {
         <Alert severity="info">登録されている商品がありません。</Alert>
       ) : (
         <TableContainer component={Paper}>
-          <Table sx={{ minWidth: 1200 }} aria-label="managed products table">
+          <Table sx={{ minWidth: isSmallScreen ? 0 : 1200 }} aria-label="managed products table">
             <TableHead>
               <TableRow>
                 <TableCell sx={{ whiteSpace: 'nowrap' }}>操作</TableCell>
                 <TableCell sx={{ whiteSpace: 'nowrap' }}>商品コード</TableCell>
                 <TableCell sx={{ whiteSpace: 'nowrap' }}>商品名</TableCell>
-                <TableCell sx={{ whiteSpace: 'nowrap' }}>netDoA商品コード</TableCell>
-                <TableCell sx={{ whiteSpace: 'nowrap' }}>賞味期限（日数）</TableCell>
-                <TableCell sx={{ whiteSpace: 'nowrap' }}>アラート日数</TableCell>
-                <TableCell sx={{ whiteSpace: 'nowrap' }}>基準在庫</TableCell>
-                <TableCell sx={{ whiteSpace: 'nowrap' }}>税込売価</TableCell>
-                <TableCell sx={{ whiteSpace: 'nowrap' }}>発注点</TableCell>
-                <TableCell sx={{ whiteSpace: 'nowrap' }}>納品ロット</TableCell>
-                <TableCell sx={{ whiteSpace: 'nowrap' }}>賞味期限（納品日起点）</TableCell>
-                <TableCell sx={{ whiteSpace: 'nowrap' }}>在庫管理</TableCell>
-                <TableCell sx={{ whiteSpace: 'nowrap' }}>画像データ</TableCell>
+                {!isSmallScreen && (
+                  <>
+                    <TableCell sx={{ whiteSpace: 'nowrap' }}>netDoA商品コード</TableCell>
+                    <TableCell sx={{ whiteSpace: 'nowrap' }}>賞味期限（日数）</TableCell>
+                    <TableCell sx={{ whiteSpace: 'nowrap' }}>アラート日数</TableCell>
+                    <TableCell sx={{ whiteSpace: 'nowrap' }}>基準在庫</TableCell>
+                    <TableCell sx={{ whiteSpace: 'nowrap' }}>税込売価</TableCell>
+                    <TableCell sx={{ whiteSpace: 'nowrap' }}>発注点</TableCell>
+                    <TableCell sx={{ whiteSpace: 'nowrap' }}>納品ロット</TableCell>
+                    <TableCell sx={{ whiteSpace: 'nowrap' }}>賞味期限（納品日起点）</TableCell>
+                    <TableCell sx={{ whiteSpace: 'nowrap' }}>在庫管理</TableCell>
+                    <TableCell sx={{ whiteSpace: 'nowrap' }}>画像データ</TableCell>
+                  </>
+                )}
               </TableRow>
             </TableHead>
             <TableBody>
               {products.map((product) => (
                 <TableRow key={product.productCode}>
                   <TableCell>
-                    <Button size="small" onClick={() => handleAddEditClick(product)}>編集</Button>
-                    <Button size="small" color="error" onClick={() => handleDeleteClick(product)}>削除</Button>
+                    {isSmallScreen ? (
+                      <Button size="small" onClick={() => handleDetailsClick(product)}>詳細</Button>
+                    ) : (
+                      <>
+                        <Button size="small" onClick={() => handleAddEditClick(product)}>編集</Button>
+                        <Button size="small" color="error" onClick={() => handleDeleteClick(product)}>削除</Button>
+                      </>
+                    )}
                   </TableCell>
                   <TableCell>{product.productCode}</TableCell>
                   <TableCell>{product.productName}</TableCell>
-                  <TableCell>{product.netDoAProductCode}</TableCell>
-                  <TableCell>{product.expirationDays}</TableCell>
-                  <TableCell>{product.alertDays}</TableCell>
-                  <TableCell>{product.standardStock}</TableCell>
-                  <TableCell>{product.taxIncludedSellingPrice}</TableCell>
-                  <TableCell>{product.reorderPoint}</TableCell>
-                  <TableCell>{product.deliveryLot}</TableCell>
-                  <TableCell>{product.expirationDeliveryBasis}</TableCell>
-                  <TableCell>{product.inventoryManagement}</TableCell>
-                  <TableCell>{product.imageData}</TableCell>
+                  {!isSmallScreen && (
+                    <>
+                      <TableCell>{product.netDoAProductCode}</TableCell>
+                      <TableCell>{product.expirationDays}</TableCell>
+                      <TableCell>{product.alertDays}</TableCell>
+                      <TableCell>{product.standardStock}</TableCell>
+                      <TableCell>{product.taxIncludedSellingPrice}</TableCell>
+                      <TableCell>{product.reorderPoint}</TableCell>
+                      <TableCell>{product.deliveryLot}</TableCell>
+                      <TableCell>{product.expirationDeliveryBasis}</TableCell>
+                      <TableCell>{product.inventoryManagement}</TableCell>
+                      <TableCell>{product.imageData}</TableCell>
+                    </>
+                  )}
                 </TableRow>
               ))}
             </TableBody>
@@ -222,7 +249,7 @@ const ProductSettingsPage = () => {
             variant="standard"
             value={currentProduct?.productCode || ''}
             onChange={(e) => setCurrentProduct({ ...currentProduct, productCode: e.target.value })}
-            disabled={!!currentProduct?.productCode} // Disable editing productCode for existing products
+            disabled={!!currentProduct?.productCode}
           />
           <TextField
             margin="dense"
@@ -338,6 +365,34 @@ const ProductSettingsPage = () => {
         <DialogActions>
           <Button onClick={handleDialogClose}>キャンセル</Button>
           <Button onClick={handleSaveProduct}>{currentProduct?.productCode ? '保存' : '追加'}</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Details Dialog */}
+      <Dialog open={openDetailsDialog} onClose={handleDetailsClose} fullWidth maxWidth="sm">
+        <DialogTitle>商品詳細</DialogTitle>
+        <DialogContent>
+          {productForDetails && (
+            <Box>
+              <Typography variant="subtitle1"><b>商品コード:</b> {productForDetails.productCode}</Typography>
+              <Typography variant="subtitle1"><b>商品名:</b> {productForDetails.productName}</Typography>
+              <Typography variant="subtitle1"><b>netDoA商品コード:</b> {productForDetails.netDoAProductCode}</Typography>
+              <Typography variant="subtitle1"><b>賞味期限（日数）:</b> {productForDetails.expirationDays}</Typography>
+              <Typography variant="subtitle1"><b>アラート日数:</b> {productForDetails.alertDays}</Typography>
+              <Typography variant="subtitle1"><b>基準在庫:</b> {productForDetails.standardStock}</Typography>
+              <Typography variant="subtitle1"><b>税込売価:</b> {productForDetails.taxIncludedSellingPrice}</Typography>
+              <Typography variant="subtitle1"><b>発注点:</b> {productForDetails.reorderPoint}</Typography>
+              <Typography variant="subtitle1"><b>納品ロット:</b> {productForDetails.deliveryLot}</Typography>
+              <Typography variant="subtitle1"><b>賞味期限（納品日起点）:</b> {productForDetails.expirationDeliveryBasis}</Typography>
+              <Typography variant="subtitle1"><b>在庫管理:</b> {productForDetails.inventoryManagement}</Typography>
+              <Typography variant="subtitle1"><b>画像データ:</b> {productForDetails.imageData}</Typography>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => { handleDetailsClose(); handleAddEditClick(productForDetails); }}>編集</Button>
+          <Button color="error" onClick={() => { handleDetailsClose(); handleDeleteClick(productForDetails); }}>削除</Button>
+          <Button onClick={handleDetailsClose}>閉じる</Button>
         </DialogActions>
       </Dialog>
 
