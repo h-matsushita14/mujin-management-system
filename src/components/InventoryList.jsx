@@ -156,6 +156,7 @@ const InventoryList = () => {
                 key={item['商品コード'] || index}
                 sx={{ backgroundColor: isExpiringSoon ? 'rgba(255, 100, 100, 0.08)' : 'inherit' }}
               >
+                <TableCell>{item['商品コード']}</TableCell>
                 <TableCell>{item['商品名']}</TableCell>
                 <TableCell align="right">{item['在庫数']}</TableCell>
                 <TableCell>
@@ -205,7 +206,7 @@ const InventoryList = () => {
                   在庫: <Box component="span" sx={{ fontWeight: 'bold' }}>{item['在庫数']}</Box>
                 </Typography>
                 <Typography variant="body1" component="div" noWrap sx={{ color: isExpiringSoon ? 'error.main' : 'inherit', fontWeight: 'bold' }}>
-                  あと {item['販売可能日数'] !== null && item['販売可能日数'] !== undefined ? item['販売可能日数'] : 'N/A'} 日
+                  販売可能: {item['販売可能日数'] !== null && item['販売可能日数'] !== undefined ? item['販売可能日数'] : 'N/A'}
                 </Typography>
                 <Typography variant="body2" color="text.secondary" noWrap>
                   賞味期限: {formatDate(item['賞味期限'])}
