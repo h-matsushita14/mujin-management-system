@@ -17,6 +17,6 @@ If you are developing a production application, we recommend using TypeScript wi
 
 - **Deployment ID:** AKfycbwiP4RETq10ZWZie3OWWNXn6dITdmUWJ-KiGi_K9LOTp12C7Ni2erpxtgZMzdD48qE
 
-### Manual API
+### Product Master API
 
-- **Deployment ID:** AKfycbynn3c0bZJ8oRCp7n8nBnnu7LErMMp0-P_WwuJAn3zHnJKxy4c_gGvzneUaChvZtJBn
+- **Deployment ID:** AKfycbx7GyQ44FTh-FjrAb_GK0WscWpgR5fIFMHwVMllQB6-ufQY9suiAwVuH4yD2nEHeUrz

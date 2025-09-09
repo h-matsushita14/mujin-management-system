@@ -10,7 +10,20 @@ const ProductSettingsPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [openDialog, setOpenDialog] = useState(false);
-  const [currentProduct, setCurrentProduct] = useState(null);
+  const [currentProduct, setCurrentProduct] = useState({ // Initialize with all fields
+    productCode: '',
+    productName: '',
+    netDoAProductCode: '',
+    expirationDays: '',
+    alertDays: '',
+    standardStock: '',
+    taxIncludedSellingPrice: '',
+    reorderPoint: '',
+    deliveryLot: '',
+    expirationDeliveryBasis: '',
+    inventoryManagement: '',
+    imageData: '',
+  });
 
   // State for delete confirmation dialog
   const [openDeleteConfirmDialog, setOpenDeleteConfirmDialog] = useState(false);
@@ -24,8 +37,8 @@ const ProductSettingsPage = () => {
       const result = await response.json();
 
       const formattedProducts = result.map(p => ({
-        productCode: p['商品コード'] || '', // Changed from p.productCode
-        productName: p['商品名'] || '',     // Changed from p.productName
+        productCode: p['商品コード'] || '',
+        productName: p['商品名'] || '',
         netDoAProductCode: p['netDoA商品コード'] || '',
         expirationDays: p['賞味期限（日数）'] || '',
         alertDays: p['アラート日数'] || '',
@@ -50,7 +63,20 @@ const ProductSettingsPage = () => {
   }, [fetchProducts]);
 
   const handleAddEditClick = (product = null) => {
-    setCurrentProduct(product);
+    setCurrentProduct(product ? { ...product } : { // Ensure all fields are present for new product
+      productCode: '',
+      productName: '',
+      netDoAProductCode: '',
+      expirationDays: '',
+      alertDays: '',
+      standardStock: '',
+      taxIncludedSellingPrice: '',
+      reorderPoint: '',
+      deliveryLot: '',
+      expirationDeliveryBasis: '',
+      inventoryManagement: '',
+      imageData: '',
+    });
     setOpenDialog(true);
   };
 
@@ -63,14 +89,35 @@ const ProductSettingsPage = () => {
 
   const handleDialogClose = () => {
     setOpenDialog(false);
-    setCurrentProduct(null);
+    setCurrentProduct(null); // Reset currentProduct after closing dialog
   };
 
   const handleSaveProduct = async () => {
-    // TODO: Add/Edit API call
-    console.log('Saving product:', currentProduct);
-    handleDialogClose();
-    fetchProducts();
+    if (!currentProduct.productCode || !currentProduct.productName) {
+      alert('商品コードと商品名は必須です。');
+      return;
+    }
+
+    try {
+      const action = products.some(p => p.productCode === currentProduct.productCode) ? 'updateProduct' : 'addProduct';
+      const response = await fetch(`/.netlify/functions/gas-proxy?type=productMaster`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ action, ...currentProduct }).toString(),
+      });
+      const result = await response.json();
+
+      if (result.success) {
+        console.log('Product saved successfully:', result);
+        handleDialogClose();
+        fetchProducts(); // Refetch products after successful save
+      } else {
+        alert(`保存に失敗しました: ${result.error}`);
+      }
+    } catch (e) {
+      setError(e.message);
+      alert(`保存中にエラーが発生しました: ${e.message}`);
+    }
   };
 
   // Functions for delete confirmation dialog
@@ -121,7 +168,7 @@ const ProductSettingsPage = () => {
           <Table sx={{ minWidth: 1200 }} aria-label="managed products table">
             <TableHead>
               <TableRow>
-                <TableCell sx={{ whiteSpace: 'nowrap' }}>操作</TableCell> {/* Moved to first */}
+                <TableCell sx={{ whiteSpace: 'nowrap' }}>操作</TableCell>
                 <TableCell sx={{ whiteSpace: 'nowrap' }}>商品コード</TableCell>
                 <TableCell sx={{ whiteSpace: 'nowrap' }}>商品名</TableCell>
                 <TableCell sx={{ whiteSpace: 'nowrap' }}>netDoA商品コード</TableCell>
@@ -142,7 +189,7 @@ const ProductSettingsPage = () => {
                   <TableCell>
                     <Button size="small" onClick={() => handleAddEditClick(product)}>編集</Button>
                     <Button size="small" color="error" onClick={() => handleDeleteClick(product)}>削除</Button>
-                  </TableCell> {/* Moved to first */}
+                  </TableCell>
                   <TableCell>{product.productCode}</TableCell>
                   <TableCell>{product.productName}</TableCell>
                   <TableCell>{product.netDoAProductCode}</TableCell>
@@ -163,7 +210,7 @@ const ProductSettingsPage = () => {
       )}
 
       <Dialog open={openDialog} onClose={handleDialogClose}>
-        <DialogTitle>{currentProduct ? '商品編集' : '新規商品追加'}</DialogTitle>
+        <DialogTitle>{currentProduct?.productCode ? '商品編集' : '新規商品追加'}</DialogTitle>
         <DialogContent>
           <TextField
             autoFocus
@@ -173,8 +220,9 @@ const ProductSettingsPage = () => {
             type="text"
             fullWidth
             variant="standard"
-            defaultValue={currentProduct?.productCode || ''}
-            // TODO: Add onChange handler to update currentProduct state
+            value={currentProduct?.productCode || ''}
+            onChange={(e) => setCurrentProduct({ ...currentProduct, productCode: e.target.value })}
+            disabled={!!currentProduct?.productCode} // Disable editing productCode for existing products
           />
           <TextField
             margin="dense"
@@ -183,14 +231,113 @@ const ProductSettingsPage = () => {
             type="text"
             fullWidth
             variant="standard"
-            defaultValue={currentProduct?.productName || ''}
-            // TODO: Add onChange handler to update currentProduct state
+            value={currentProduct?.productName || ''}
+            onChange={(e) => setCurrentProduct({ ...currentProduct, productName: e.target.value })}
           />
-          {/* TODO: Add other fields as needed */}
+          <TextField
+            margin="dense"
+            id="netDoAProductCode"
+            label="netDoA商品コード"
+            type="text"
+            fullWidth
+            variant="standard"
+            value={currentProduct?.netDoAProductCode || ''}
+            onChange={(e) => setCurrentProduct({ ...currentProduct, netDoAProductCode: e.target.value })}
+          />
+          <TextField
+            margin="dense"
+            id="expirationDays"
+            label="賞味期限（日数）"
+            type="number"
+            fullWidth
+            variant="standard"
+            value={currentProduct?.expirationDays || ''}
+            onChange={(e) => setCurrentProduct({ ...currentProduct, expirationDays: e.target.value })}
+          />
+          <TextField
+            margin="dense"
+            id="alertDays"
+            label="アラート日数"
+            type="number"
+            fullWidth
+            variant="standard"
+            value={currentProduct?.alertDays || ''}
+            onChange={(e) => setCurrentProduct({ ...currentProduct, alertDays: e.target.value })}
+          />
+          <TextField
+            margin="dense"
+            id="standardStock"
+            label="基準在庫"
+            type="number"
+            fullWidth
+            variant="standard"
+            value={currentProduct?.standardStock || ''}
+            onChange={(e) => setCurrentProduct({ ...currentProduct, standardStock: e.target.value })}
+          />
+          <TextField
+            margin="dense"
+            id="taxIncludedSellingPrice"
+            label="税込売価"
+            type="number"
+            fullWidth
+            variant="standard"
+            value={currentProduct?.taxIncludedSellingPrice || ''}
+            onChange={(e) => setCurrentProduct({ ...currentProduct, taxIncludedSellingPrice: e.target.value })}
+          />
+          <TextField
+            margin="dense"
+            id="reorderPoint"
+            label="発注点"
+            type="number"
+            fullWidth
+            variant="standard"
+            value={currentProduct?.reorderPoint || ''}
+            onChange={(e) => setCurrentProduct({ ...currentProduct, reorderPoint: e.target.value })}
+          />
+          <TextField
+            margin="dense"
+            id="deliveryLot"
+            label="納品ロット"
+            type="number"
+            fullWidth
+            variant="standard"
+            value={currentProduct?.deliveryLot || ''}
+            onChange={(e) => setCurrentProduct({ ...currentProduct, deliveryLot: e.target.value })}
+          />
+          <TextField
+            margin="dense"
+            id="expirationDeliveryBasis"
+            label="賞味期限（納品日起点）"
+            type="text"
+            fullWidth
+            variant="standard"
+            value={currentProduct?.expirationDeliveryBasis || ''}
+            onChange={(e) => setCurrentProduct({ ...currentProduct, expirationDeliveryBasis: e.target.value })}
+          />
+          <TextField
+            margin="dense"
+            id="inventoryManagement"
+            label="在庫管理"
+            type="text"
+            fullWidth
+            variant="standard"
+            value={currentProduct?.inventoryManagement || ''}
+            onChange={(e) => setCurrentProduct({ ...currentProduct, inventoryManagement: e.target.value })}
+          />
+          <TextField
+            margin="dense"
+            id="imageData"
+            label="画像データ"
+            type="text"
+            fullWidth
+            variant="standard"
+            value={currentProduct?.imageData || ''}
+            onChange={(e) => setCurrentProduct({ ...currentProduct, imageData: e.target.value })}
+          />
         </DialogContent>
         <DialogActions>
           <Button onClick={handleDialogClose}>キャンセル</Button>
-          <Button onClick={handleSaveProduct}>{currentProduct ? '保存' : '追加'}</Button>
+          <Button onClick={handleSaveProduct}>{currentProduct?.productCode ? '保存' : '追加'}</Button>
         </DialogActions>
       </Dialog>
 
