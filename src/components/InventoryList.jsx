@@ -141,11 +141,12 @@ const InventoryList = () => {
       <Table sx={{ minWidth: 650 }} aria-label="inventory table" stickyHeader>
         <TableHead sx={{ position: 'sticky', top: 0, zIndex: 1, bgcolor: 'background.paper' }}>
           <TableRow>
+            <TableCell>商品コード</TableCell>
             <TableCell>商品名</TableCell>
             <TableCell align="right">在庫数</TableCell>
             <TableCell>在庫割合</TableCell>
             <TableCell>賞味期限</TableCell>
-            <TableCell>販売可能日数</TableCell>
+            <TableCell align="right">販売可能日数</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
