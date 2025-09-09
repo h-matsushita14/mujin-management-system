@@ -19,4 +19,4 @@ If you are developing a production application, we recommend using TypeScript wi
 
 ### Product Master API
 
-- **Deployment ID:** AKfycbx7GyQ44FTh-FjrAb_GK0WscWpgR5fIFMHwVMllQB6-ufQY9suiAwVuH4yD2nEHeUrz
+- **Deployment ID:** AKfycbxaTNfqm2BAY2Ln0USKT57YBZrqorRUcmIMtPC3jQ_pwnIh4h6iHhdA7wc3qIfTAeHU
