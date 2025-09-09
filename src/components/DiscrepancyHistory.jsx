@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, CircularProgress, Typography, Alert,
-  Box, FormControl, InputLabel, Select, MenuItem
+  Box, FormControl, InputLabel, Select, MenuItem, Grid, useTheme, useMediaQuery
 } from '@mui/material';
 
 const DiscrepancyHistory = () => {
@@ -10,15 +10,16 @@ const DiscrepancyHistory = () => {
   const [error, setError] = useState(null);
   const [selectedProduct, setSelectedProduct] = useState('全商品');
 
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
         const response = await fetch(`/.netlify/functions/gas-proxy?page=discrepancy_history`);
         const result = await response.json();
-        console.log("GAS response data for discrepancy_history:", result);
-        // GASは直接差異履歴の配列を返すように修正した
-        setHistory(result); // resultは直接配列
+        setHistory(result || []);
       } catch (e) {
         setError(e.message);
       } finally {
@@ -42,24 +43,77 @@ const DiscrepancyHistory = () => {
   }, [history, selectedProduct]);
 
   const sortedFilteredHistory = useMemo(() => {
-    const sorted = [...filteredHistory].sort((a, b) => {
-      return new Date(b['日付']) - new Date(a['日付']); // Descending order
-    });
-    return sorted;
+    return [...filteredHistory].sort((a, b) => new Date(b['日付']) - new Date(a['日付']));
   }, [filteredHistory]);
 
   const totalDifference = useMemo(() => {
     return filteredHistory.reduce((sum, item) => sum + Number(item['差異']), 0);
   }, [filteredHistory]);
 
+  const renderTableView = () => (
+    <TableContainer component={Paper}>
+      <Table sx={{ minWidth: 650 }} aria-label="discrepancy table">
+        <TableHead>
+          <TableRow>
+            <TableCell>日付</TableCell>
+            <TableCell>商品コード</TableCell>
+            <TableCell>商品名</TableCell>
+            <TableCell align="right">差異</TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {sortedFilteredHistory.length > 0 ? (
+            sortedFilteredHistory.map((row, index) => (
+              <TableRow key={`${row['商品コード']}-${row['日付']}-${index}`}>
+                <TableCell>{new Date(row['日付']).toISOString().split('T')[0]}</TableCell>
+                <TableCell>{row['商品コード']}</TableCell>
+                <TableCell>{row['商品名']}</TableCell>
+                <TableCell align="right">{row['差異']}</TableCell>
+              </TableRow>
+            ))
+          ) : (
+            <TableRow>
+              <TableCell colSpan={4} align="center">
+                <Typography>表示する差異データがありません。</Typography>
+              </TableCell>
+            </TableRow>
+          )}
+        </TableBody>
+      </Table>
+    </TableContainer>
+  );
 
-  if (loading) {
-    return <CircularProgress />;
-  }
+  const renderCardView = () => (
+    <Box>
+      {sortedFilteredHistory.length > 0 ? (
+        sortedFilteredHistory.map((row, index) => (
+          <Paper key={`${row['商品コード']}-${row['日付']}-${index}`} elevation={2} sx={{ p: 2, mb: 2 }}>
+            <Grid container spacing={1} alignItems="center">
+              <Grid item xs={8}>
+                <Typography variant="h6" component="div">{row['商品名']}</Typography>
+                <Typography variant="body2" color="text.secondary">{row['商品コード']}</Typography>
+              </Grid>
+              <Grid item xs={4} sx={{ textAlign: 'right' }}>
+                <Typography variant="h5" component="div" color={row['差異'] > 0 ? 'primary.main' : 'error.main'}>
+                  {row['差異'] > 0 ? `+${row['差異']}` : row['差異']}
+                </Typography>
+              </Grid>
+              <Grid item xs={12} sx={{ textAlign: 'right' }}>
+                <Typography variant="body2" color="text.secondary">
+                  {new Date(row['日付']).toISOString().split('T')[0]}
+                </Typography>
+              </Grid>
+            </Grid>
+          </Paper>
+        ))
+      ) : (
+        <Typography>表示する差異データがありません。</Typography>
+      )}
+    </Box>
+  );
 
-  if (error) {
-    return <Alert severity="error">{error}</Alert>;
-  }
+  if (loading) return <CircularProgress />;
+  if (error) return <Alert severity="error">{error}</Alert>;
 
   return (
     <Box>
@@ -82,36 +136,7 @@ const DiscrepancyHistory = () => {
         </Typography>
       </Box>
 
-      <TableContainer component={Paper}>
-        <Table sx={{ minWidth: 650 }} aria-label="discrepancy table">
-          <TableHead>
-            <TableRow>
-              <TableCell>日付</TableCell>
-              <TableCell>商品コード</TableCell>
-              <TableCell>商品名</TableCell>
-              <TableCell align="right">差異</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {sortedFilteredHistory.length > 0 ? (
-              sortedFilteredHistory.map((row, index) => (
-                <TableRow key={`${row['商品コード']}-${row['日付']}-${index}`}>
-                  <TableCell>{new Date(row['日付']).toISOString().split('T')[0]}</TableCell>
-                  <TableCell>{row['商品コード']}</TableCell>
-                  <TableCell>{row['商品名']}</TableCell>
-                  <TableCell align="right">{row['差異']}</TableCell>
-                </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell colSpan={4} align="center">
-                  <Typography>表示する差異データがありません。</Typography>
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </TableContainer>
+      {isMobile ? renderCardView() : renderTableView()}
     </Box>
   );
 };
