@@ -12,17 +12,20 @@ const ProductSettingsPage = () => {
   const [openDialog, setOpenDialog] = useState(false);
   const [currentProduct, setCurrentProduct] = useState(null);
 
+  // State for delete confirmation dialog
+  const [openDeleteConfirmDialog, setOpenDeleteConfirmDialog] = useState(false);
+  const [productToDelete, setProductToDelete] = useState(null); // Stores the product object to be deleted
+  const [deleteStep, setDeleteStep] = useState(1); // 1 for first confirm, 2 for second
+
   const fetchProducts = useCallback(async () => {
     try {
       setLoading(true);
       const response = await fetch(`/.netlify/functions/gas-proxy?type=stock&page=managed_products`);
       const result = await response.json();
 
-      // API応答がproductCodeを含まない可能性があるため、防御的に処理
       const formattedProducts = result.map(p => ({
-        productCode: p.productCode || '', // productCodeがない場合は空文字列
+        productCode: p.productCode || '',
         productName: p.productName || '',
-        // 他の必要なプロパティもここに追加
       }));
       setProducts(formattedProducts);
     } catch (e) {
@@ -41,18 +44,11 @@ const ProductSettingsPage = () => {
     setOpenDialog(true);
   };
 
-  const handleDeleteClick = async (productCode) => {
-    if (!window.confirm(`商品コード: ${productCode} を削除しますか？`)) {
-      return;
-    }
-    try {
-      // TODO: Delete API call
-      console.log('Deleting product:', productCode);
-      // After successful deletion, refetch products
-      fetchProducts();
-    } catch (e) {
-      setError(e.message);
-    }
+  // Modified handleDeleteClick to open custom dialog
+  const handleDeleteClick = (product) => {
+    setProductToDelete(product);
+    setDeleteStep(1);
+    setOpenDeleteConfirmDialog(true);
   };
 
   const handleDialogClose = () => {
@@ -64,8 +60,33 @@ const ProductSettingsPage = () => {
     // TODO: Add/Edit API call
     console.log('Saving product:', currentProduct);
     handleDialogClose();
-    // After successful save, refetch products
     fetchProducts();
+  };
+
+  // Functions for delete confirmation dialog
+  const handleDeleteConfirmClose = () => {
+    setOpenDeleteConfirmDialog(false);
+    setProductToDelete(null);
+    setDeleteStep(1); // Reset for next time
+  };
+
+  const handleFirstConfirm = () => {
+    setDeleteStep(2); // Move to second step
+  };
+
+  const handleSecondConfirm = async () => {
+    if (!productToDelete) return;
+    try {
+      // TODO: Implement actual delete API call here using productToDelete.productCode
+      console.log('Deleting product:', productToDelete.productCode);
+      // Simulate API call for now
+      await new Promise(resolve => setTimeout(resolve, 500)); 
+
+      handleDeleteConfirmClose();
+      fetchProducts(); // Refetch products after successful deletion
+    } catch (e) {
+      setError(e.message);
+    }
   };
 
   if (error) {
@@ -102,7 +123,7 @@ const ProductSettingsPage = () => {
                   <TableCell>{product.productName}</TableCell>
                   <TableCell>
                     <Button size="small" onClick={() => handleAddEditClick(product)}>編集</Button>
-                    <Button size="small" color="error" onClick={() => handleDeleteClick(product.productCode)}>削除</Button>
+                    <Button size="small" color="error" onClick={() => handleDeleteClick(product)}>削除</Button>
                   </TableCell>
                 </TableRow>
               ))}
@@ -140,6 +161,32 @@ const ProductSettingsPage = () => {
         <DialogActions>
           <Button onClick={handleDialogClose}>キャンセル</Button>
           <Button onClick={handleSaveProduct}>{currentProduct ? '保存' : '追加'}</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={openDeleteConfirmDialog} onClose={handleDeleteConfirmClose}>
+        <DialogTitle>
+          {deleteStep === 1 ? '削除確認' : '最終確認'}
+        </DialogTitle>
+        <DialogContent>
+          {deleteStep === 1 ? (
+            <Typography>
+              対象の商品名: <Box component="span" sx={{ fontWeight: 'bold' }}>{productToDelete?.productName}</Box> を削除します。よろしいですか？
+            </Typography>
+          ) : (
+            <Typography>
+              本当に削除しますがよろしいですか？この操作は元に戻せません。
+            </Typography>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleDeleteConfirmClose}>キャンセル</Button>
+          {deleteStep === 1 ? (
+            <Button onClick={handleFirstConfirm} color="error">はい</Button>
+          ) : (
+            <Button onClick={handleSecondConfirm} color="error" variant="contained">本当に削除</Button>
+          )}
         </DialogActions>
       </Dialog>
     </Container>
