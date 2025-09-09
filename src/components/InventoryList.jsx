@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper,
-  CircularProgress, Typography, Alert, Box, Button, TextField, Grid,
+  CircularProgress, Typography, Alert, Box, Button, TextField,
   useTheme, useMediaQuery
 } from '@mui/material';
 import ArrowBackIosIcon from '@mui/icons-material/ArrowBackIos';
@@ -21,7 +21,7 @@ const formatDate = (date) => {
   return `${year}-${month}-${day}`;
 };
 
-const CACHE_SIZE = 7; // キャッシュする日数
+const CACHE_SIZE = 7;
 
 const InventoryList = () => {
   const [inventoryCache, setInventoryCache] = useState({});
@@ -34,7 +34,8 @@ const InventoryList = () => {
   const [message, setMessage] = useState({ type: '', text: '' });
 
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const isDesktop = useMediaQuery(theme.breakpoints.up('md'));
+  const isTablet = useMediaQuery(theme.breakpoints.between('sm', 'md'));
 
   const fetchInventory = useCallback(async (date) => {
     const dateStr = formatDate(date);
@@ -149,7 +150,7 @@ const InventoryList = () => {
         </TableHead>
         <TableBody>
           {displayedInventory.map((item, index) => {
-            const isExpiringSoon = item['販売可能日数'] !== null && item['販売可能日数'] !== undefined && item['販売可能日数'] <= 7;
+            const isExpiringSoon = item['賞味期限'] && item['販売可能日数'] !== null && item['販売可能日数'] !== undefined && item['販売可能日数'] <= 7;
             return (
               <TableRow 
                 key={item['商品コード'] || index}
@@ -184,33 +185,59 @@ const InventoryList = () => {
   const renderCardView = () => (
     <Box>
       {displayedInventory.map((item, index) => {
-        const isExpiringSoon = item['販売可能日数'] !== null && item['販売可能日数'] !== undefined && item['販売可能日数'] <= 7;
-        return (
-          <Paper 
-            key={item['商品コード'] || index} 
-            elevation={2} 
-            sx={{ p: 2, mb: 2, borderLeft: isExpiringSoon ? `5px solid ${theme.palette.error.main}` : 'none', backgroundColor: isExpiringSoon ? 'rgba(255, 100, 100, 0.05)' : 'background.paper' }}
-          >
-            <Grid container spacing={2} alignItems="center">
-              <Grid item xs={12}>
-                <Typography variant="h6" component="div">{item['商品名']}</Typography>
-              </Grid>
-              <Grid item xs={6}>
-                <Typography variant="body2" color="text.secondary">在庫数</Typography>
-                <Typography variant="h5">{item['在庫数']}</Typography>
-              </Grid>
-              <Grid item xs={6}>
-                <Typography variant="body2" color="text.secondary">販売可能日数</Typography>
-                <Typography variant="h5" sx={{ color: isExpiringSoon ? 'error.main' : 'inherit', fontWeight: isExpiringSoon ? 'bold' : 'normal' }}>
-                  {item['販売可能日数'] !== null && item['販売可能日数'] !== undefined ? item['販売可能日数'] : 'N/A'}
+        const isExpiringSoon = item['賞味期限'] && item['販売可能日数'] !== null && item['販売可能日数'] !== undefined && item['販売可能日数'] <= 7;
+        const cardSx = {
+          p: 2,
+          mb: 2,
+          borderLeft: isExpiringSoon ? `5px solid ${theme.palette.error.main}` : 'none',
+          backgroundColor: isExpiringSoon ? 'rgba(255, 100, 100, 0.05)' : 'background.paper',
+        };
+
+        if (isTablet) {
+          // Tablet: 1-line flex-wrap layout
+          return (
+            <Paper key={item['商品コード'] || index} elevation={2} sx={cardSx}>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: '8px 16px' }}>
+                <Typography variant="h6" component="div" sx={{ flex: '1 1 180px', mr: 'auto' }}>
+                  {item['商品名']}
                 </Typography>
-              </Grid>
-              <Grid item xs={12}>
-                 <Typography variant="body2" color="text.secondary">賞味期限: {formatDate(item['賞味期限'])}</Typography>
-              </Grid>
-            </Grid>
-          </Paper>
-        );
+                <Typography variant="body1" component="div" noWrap>
+                  在庫: <Box component="span" sx={{ fontWeight: 'bold' }}>{item['在庫数']}</Box>
+                </Typography>
+                <Typography variant="body1" component="div" noWrap sx={{ color: isExpiringSoon ? 'error.main' : 'inherit', fontWeight: 'bold' }}>
+                  あと {item['販売可能日数'] !== null && item['販売可能日数'] !== undefined ? item['販売可能日数'] : 'N/A'} 日
+                </Typography>
+                <Typography variant="body2" color="text.secondary" noWrap>
+                  賞味期限: {formatDate(item['賞味期限'])}
+                </Typography>
+              </Box>
+            </Paper>
+          );
+        } else {
+          // Phone: 3-line layout
+          return (
+            <Paper key={item['商品コード'] || index} elevation={2} sx={cardSx}>
+              <Typography variant="h6" component="div" sx={{ mb: 1 }}>{item['商品名']}</Typography>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                <Box>
+                  <Typography variant="caption" color="text.secondary">在庫数</Typography>
+                  <Typography variant="h5">{item['在庫数']}</Typography>
+                </Box>
+                <Box sx={{ textAlign: 'right' }}>
+                  <Typography variant="caption" color="text.secondary">販売可能日数</Typography>
+                  <Typography variant="h5" sx={{ color: isExpiringSoon ? 'error.main' : 'inherit', fontWeight: isExpiringSoon ? 'bold' : 'normal' }}>
+                    {item['販売可能日数'] !== null && item['販売可能日数'] !== undefined ? item['販売可能日数'] : 'N/A'}
+                  </Typography>
+                </Box>
+              </Box>
+              <Box sx={{ mt: 1 }}>
+                <Typography variant="body2" color="text.secondary">
+                  賞味期限: {formatDate(item['賞味期限'])}
+                </Typography>
+              </Box>
+            </Paper>
+          );
+        }
       })}
     </Box>
   );
@@ -254,7 +281,7 @@ const InventoryList = () => {
       ) : displayedInventory.length === 0 ? (
         <Alert severity="info">表示する在庫データがありません。</Alert>
       ) : (
-        isMobile ? renderCardView() : renderTableView()
+        isDesktop ? renderTableView() : renderCardView()
       )}
     </LocalizationProvider>
   );
