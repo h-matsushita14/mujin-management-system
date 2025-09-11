@@ -110,15 +110,39 @@ function doGet(e) {
       }
 
       case 'managed_products': {
+        const IMAGE_FOLDER_ID = '11J6ygmOZHTumUsyeemilyQjUrfn0_bP5'; // The ID provided by the user
+
         const productMasterData = getSheetData(CONFIG.productMasterSheetId, CONFIG.productMasterSheetName);
         if (!productMasterData) {
           return createJsonResponse({ success: false, error: '商品マスターデータの取得に失敗しました。' });
         }
         const products = createProductInfoMap(productMasterData, createHeaderMap(productMasterData[0]));
-        const managedProducts = Object.keys(products).map(code => ({
-          productCode: code,
-          productName: products[code].productName
-        }));
+        
+        const imageFolder = DriveApp.getFolderById(IMAGE_FOLDER_ID);
+
+        const managedProducts = Object.keys(products).map(code => {
+          const product = products[code];
+          let imageUrl = ''; // Default to empty string
+
+          if (product.imageData) {
+            const filename = product.imageData.split('/').pop(); 
+            try {
+              const files = imageFolder.getFilesByName(filename);
+              if (files.hasNext()) {
+                const file = files.next();
+                imageUrl = `https://drive.google.com/uc?export=view&id=${file.getId()}`;
+              }
+            } catch (e) {
+              Logger.log(`Error finding image for product ${code}: ${e.message}`);
+            }
+          }
+
+          return {
+            productCode: code,
+            productName: product.productName,
+            imageData: imageUrl // Return the full, public URL
+          };
+        });
         return createJsonResponse(managedProducts);
       }
 
