@@ -62,7 +62,7 @@ function StocktakingPage() {
         return {
           productCode: product.productCode,
           productName: product.productName,
-          imageData: product.imageData || '',
+          imageData: product['画像データ'] ? `/${product['画像データ']}` : '', // 相対パスを絶対パスに変換
           theoreticalStock: theoreticalStock,
           actualStock: '', // Initialize actual stock as empty
         };
