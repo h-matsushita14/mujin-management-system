@@ -62,7 +62,7 @@ function StocktakingPage() {
         return {
           productCode: product.productCode,
           productName: product.productName,
-          imageData: product.imageData ? `/${product.imageData}` : '', // GASから返されるimageDataを使用
+          imageData: product.imageData || '',
           theoreticalStock: theoreticalStock,
           actualStock: '', // Initialize actual stock as empty
         };
