@@ -37,7 +37,8 @@ function StocktakingPage() {
       // 1. Fetch managed products (with imageData)
       const productsResponse = await fetch('/.netlify/functions/gas-proxy?type=stock&page=managed_products');
       if (!productsResponse.ok) throw new Error('商品マスターの取得に失敗しました。');
-      const products = await productsResponse.json();
+      const productsData = await productsResponse.json();
+      const products = Array.isArray(productsData) ? productsData : []; // productsDataが配列であることを確認し、そうでなければ空の配列をセット
 
       // 2. Fetch previous day's inventory to get theoretical stock
       const yesterday = new Date();
