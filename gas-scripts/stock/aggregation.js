@@ -234,23 +234,50 @@ function calculateInventoryForDate(targetDate, yesterdaysInventories = {}) {
   const calculatedInventories = {};
   for (const code of managedProductCodes) {
     const productInfo = productInfoMap[code];
-    const actual = latestStock[code];
-    const baseDate = actual ? actual.date : null;
-    const baseQty = actual ? actual.qty : 0;
-    let inventory = baseQty;
-    if (baseDate) {
-      inventory += (deliveries[code] ? deliveries[code].filter(d => d.date >= baseDate && d.date <= today).reduce((sum, item) => sum + item.qty, 0) : 0);
-      inventory -= (sales[code] ? sales[code].filter(s => s.date >= baseDate && s.date <= today).reduce((sum, item) => sum + item.qty, 0) : 0);
-      inventory -= (recoveries[code] ? recoveries[code].filter(r => r.date >= baseDate && r.date <= today).reduce((sum, item) => sum + item.qty, 0) : 0);
+    const actualStockOnDate = stockOnDate[code];
+    let inventory;
+    let baseDate;
+
+    if (actualStockOnDate !== undefined) {
+      // 実在庫確認日の処理
+      baseDate = today;
+      const todayYMD = formatDateToYMD(today);
+
+      // その日の入出庫量を計算
+      const deliveryTodayQty = deliveries[code] ? deliveries[code].filter(d => formatDateToYMD(d.date) === todayYMD).reduce((sum, item) => sum + item.qty, 0) : 0;
+      const salesTodayQty = sales[code] ? sales[code].filter(s => formatDateToYMD(s.date) === todayYMD).reduce((sum, item) => sum + item.qty, 0) : 0;
+      const recoveryTodayQty = recoveries[code] ? recoveries[code].filter(r => formatDateToYMD(r.date) === todayYMD).reduce((sum, item) => sum + item.qty, 0) : 0;
+
+      // 同日の入出庫データが存在するかどうかで計算方法を分岐
+      if (deliveryTodayQty > 0 || salesTodayQty > 0 || recoveryTodayQty > 0) {
+        // MODE_A: 入出庫が存在する場合、実在庫を基点に変動を反映
+        inventory = actualStockOnDate + deliveryTodayQty - salesTodayQty - recoveryTodayQty;
+      } else {
+        // MODE_B: 実在庫の記録しかない場合、実在庫の値をそのまま使用
+        inventory = actualStockOnDate;
+      }
     } else {
-      inventory += (deliveries[code] ? deliveries[code].filter(d => d.date <= today).reduce((sum, item) => sum + item.qty, 0) : 0);
-      inventory -= (sales[code] ? sales[code].filter(s => s.date <= today).reduce((sum, item) => sum + item.qty, 0) : 0);
-      inventory -= (recoveries[code] ? recoveries[code].filter(r => r.date <= today).reduce((sum, item) => sum + item.qty, 0) : 0);
+      // 実在庫が登録されていない日は、従来の理論在庫計算を行う
+      const actual = latestStock[code];
+      baseDate = actual ? actual.date : null;
+      const baseQty = actual ? actual.qty : 0;
+      inventory = baseQty;
+      if (baseDate) {
+        const baseDateYMD = formatDateToYMD(baseDate);
+        const todayYMD = formatDateToYMD(today);
+        inventory += (deliveries[code] ? deliveries[code].filter(d => formatDateToYMD(d.date) >= baseDateYMD && formatDateToYMD(d.date) <= todayYMD).reduce((sum, item) => sum + item.qty, 0) : 0);
+        inventory -= (sales[code] ? sales[code].filter(s => formatDateToYMD(s.date) >= baseDateYMD && formatDateToYMD(s.date) <= todayYMD).reduce((sum, item) => sum + item.qty, 0) : 0);
+        inventory -= (recoveries[code] ? recoveries[code].filter(r => formatDateToYMD(r.date) >= baseDateYMD && formatDateToYMD(r.date) <= todayYMD).reduce((sum, item) => sum + item.qty, 0) : 0);
+      } else {
+        const todayYMD = formatDateToYMD(today);
+        inventory += (deliveries[code] ? deliveries[code].filter(d => formatDateToYMD(d.date) <= todayYMD).reduce((sum, item) => sum + item.qty, 0) : 0);
+        inventory -= (sales[code] ? sales[code].filter(s => formatDateToYMD(s.date) <= todayYMD).reduce((sum, item) => sum + item.qty, 0) : 0);
+        inventory -= (recoveries[code] ? recoveries[code].filter(r => formatDateToYMD(r.date) <= todayYMD).reduce((sum, item) => sum + item.qty, 0) : 0);
+      }
     }
 
     let discrepancy = null;
     let yesterdayTheoreticalStock = null;
-    const actualStockOnDate = stockOnDate[code];
     if (actualStockOnDate !== undefined && yesterdaysInventories && yesterdaysInventories[code]) {
       yesterdayTheoreticalStock = yesterdaysInventories[code].inventory;
       discrepancy = actualStockOnDate - yesterdayTheoreticalStock; // ★★★ 計算式を修正 ★★★
@@ -339,7 +366,8 @@ function preprocessActualStock(data, headerMap, baseDate, managedCodes) {
     if (timestampYMD === baseDateYMD) {
       stockOnDate[code] = Number(row[qtyCol]) || 0;
     }
-    if (managedCodes.has(code) && timestamp <= baseDate) {
+    // latestStockは計算対象日より前の最新在庫とする
+    if (managedCodes.has(code) && timestamp < baseDate) {
       if (!latestStock[code] || timestamp > latestStock[code].timestamp) {
         latestStock[code] = { qty: Number(row[qtyCol]) || 0, date: getStartOfDay(timestamp), timestamp: timestamp };
       }
@@ -438,9 +466,18 @@ function createSheetRows(calculatedInventories, productInfoMap, date, headerMap,
       if (headerMap["netDoA商品コード"] !== undefined) newRow[headerMap["netDoA商品コード"]] = productInfo.netDoAProductCode || "";
       if (headerMap["商品名"] !== undefined) newRow[headerMap["商品名"]] = productInfo.productName || "";
     }
-    if (headerMap["在庫数"] !== undefined) newRow[headerMap["在庫数"]] = result.inventory;
+
+    // 在庫数は、実在庫が登録されていればそれを、なければ理論在庫を表示する
+    let inventoryValue = result.inventory;
+    if (result.actualStockOnDate !== undefined && result.actualStockOnDate !== null) {
+      inventoryValue = result.actualStockOnDate;
+    }
+    if (headerMap["在庫数"] !== undefined) newRow[headerMap["在庫数"]] = inventoryValue;
+
+    // 在庫割合も、表示された在庫数に基づいて計算する
     if (headerMap["在庫割合"] !== undefined) {
-      newRow[headerMap["在庫割合"]] = result.inventoryRatio === null ? "N/A" : result.inventoryRatio.toFixed(2);
+      const inventoryRatio = (productInfo.standardStock > 0) ? (inventoryValue / productInfo.standardStock) * 100 : null;
+      newRow[headerMap["在庫割合"]] = inventoryRatio === null ? "N/A" : inventoryRatio.toFixed(2);
     }
     
     // 差異が計算された日のみ、関連する値を記録
