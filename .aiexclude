@@ -1,0 +1,22 @@
+# Dependency directories
+node_modules/
+
+# Git directory
+.git/
+
+# Lock file
+package-lock.json
+
+# Build output
+dist/
+build/
+
+# Vite cache
+.vite/
+
+# Log files
+*.log
+
+# OS-specific files
+.DS_Store
+Thumbs.db
