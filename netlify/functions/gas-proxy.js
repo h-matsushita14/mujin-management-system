@@ -1,23 +1,14 @@
+
 const fetch = require('node-fetch');
 
 exports.handler = async function(event, context) {
-  // GAS WebアプリのデプロイURLをここに設定してください
-  // 例: https://script.google.com/macros/s/AKfycbz.../exec
-  const GAS_API_URLS = {
-    manuals: process.env.GAS_MANUALS_WEB_APP_URL,
-    stock: process.env.GAS_STOCK_WEB_APP_URL,
-    productMaster: process.env.GAS_PRODUCT_MASTER_WEB_APP_URL,
-  };
-
-  const type = event.queryStringParameters.type || 'stock'; // Default to 'stock'
-  const GAS_WEB_APP_URL = GAS_API_URLS[type];
-
-  console.log('GAS_WEB_APP_URL:', GAS_WEB_APP_URL); // Debug log
+  // 新しいGAS V2 WebアプリのURLを環境変数から取得
+  const GAS_WEB_APP_URL = process.env.GAS_V2_WEB_APP_URL;
 
   if (!GAS_WEB_APP_URL) {
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: `GAS_WEB_APP_URL for type '${type}' environment variable is not set.` }),
+      body: JSON.stringify({ error: 'GAS_V2_WEB_APP_URL environment variable is not set.' }),
     };
   }
 
@@ -26,23 +17,20 @@ exports.handler = async function(event, context) {
     let fetchOptions = {};
 
     if (event.httpMethod === 'GET') {
-      // クエリパラメータをGASに転送
-      const paramsToForward = new URLSearchParams();
-      for (const key in event.queryStringParameters) {
-        if (key !== 'type') {
-          paramsToForward.append(key, event.queryStringParameters[key]);
-        }
+      // すべてのクエリパラメータをそのままGASに転送
+      const queryString = new URLSearchParams(event.queryStringParameters).toString();
+      if (queryString) {
+        gasUrl = `${GAS_WEB_APP_URL}?${queryString}`;
       }
-      const queryString = paramsToForward.toString();
-      gasUrl = `${GAS_WEB_APP_URL}?${queryString}`;
-      fetchOptions.method = 'GET'; // doGetを呼び出すためGETを使用
+      fetchOptions.method = 'GET';
     } else if (event.httpMethod === 'POST') {
       // POSTリクエストのボディをGASに転送
-      fetchOptions.method = 'POST'; // doPostを呼び出すためPOSTを使用
+      fetchOptions.method = 'POST';
+      // フロントエンドの実装に合わせてContent-Typeを調整する必要があるかもしれない
       fetchOptions.headers = {
-        'Content-Type': 'application/x-www-form-urlencoded', // React側と合わせる
+        'Content-Type': event.headers['content-type'] || 'application/json',
       };
-      fetchOptions.body = event.body; // event.bodyはすでにURLSearchParams形式の文字列
+      fetchOptions.body = event.body;
     } else {
       return {
         statusCode: 405,
@@ -50,26 +38,19 @@ exports.handler = async function(event, context) {
       };
     }
 
-    console.log('Fetching from GAS URL:', gasUrl); // Debug log
-    console.log('Fetch options:', fetchOptions); // Debug log
-
     const response = await fetch(gasUrl, fetchOptions);
 
-    console.log('GAS response status:', response.status); // Debug log
-
-    if (!response.ok) { // レスポンスがOKでない場合にエラーをスロー
+    if (!response.ok) {
       throw new Error(`GAS Web App responded with status ${response.status}: ${response.statusText}`);
     }
 
     const data = await response.json();
 
-    console.log('GAS response data:', data); // Debug log
-
     return {
       statusCode: 200,
       headers: {
         'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*', // ReactアプリからのCORSを許可
+        'Access-Control-Allow-Origin': '*', // 必要に応じてオリジンを制限
       },
       body: JSON.stringify(data),
     };

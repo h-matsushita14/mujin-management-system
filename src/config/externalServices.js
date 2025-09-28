@@ -9,18 +9,16 @@ export const EXTERNAL_SERVICES = {
     // Add other Looker Studio reports here
   },
   googleSheets: {
-    inventorySheet: {
-      url: 'YOUR_GOOGLE_SHEETS_INVENTORY_URL_HERE', // Replace with actual URL
-      id: 'YOUR_GOOGLE_SHEETS_INVENTORY_ID_HERE',   // Replace with actual ID
+    // 新しいV2スプレッドシートのURL
+    v2db: {
+      url: 'https://docs.google.com/spreadsheets/d/1l6iInhRC5dSkw_O7ZYayHyg9X2LRWeNBB-TnWX-GbBQ/edit',
+      id: '1l6iInhRC5dSkw_O7ZYayHyg9X2LRWeNBB-TnWX-GbBQ',
     },
-    // Add other Google Sheets here
   },
   gasApi: {
-    manuals: {
-      url: '/.netlify/functions/gas-proxy?type=manuals',
-    },
-    stockApp: {
-      url: '/.netlify/functions/gas-proxy?type=stock',
+    // 新しいV2 APIのエンドポイント
+    v2: {
+      url: '/.netlify/functions/gas-proxy',
     },
   },
 };
