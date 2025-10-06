@@ -1,7 +1,8 @@
 /**
  * @fileoverview
  * 在庫サマリを計算するためのスクリプト。
- * 通常の更新（直近期間）と、全期間の再計算に対応する。
+ * 更新モード（90日/全期間）はトランザクション集約の範囲のみを決定し、
+ * 在庫サマリ計算は常に同じルールで実行される。
  */
 
 // ===================================================================================
@@ -27,32 +28,26 @@ const CALC_CONFIG = {
 
 function updateFastSummary() {
   const ui = SpreadsheetApp.getUi();
-  const response = ui.alert('在庫サマリ更新', `直近${CALC_CONFIG.defaultUpdateDays}日間の在庫サマリを更新します。よろしいですか？`, ui.ButtonSet.OK_CANCEL);
+  const response = ui.alert('在庫サマリ更新', `トランザクションを直近${CALC_CONFIG.defaultUpdateDays}日で集約し、在庫サマリを更新します。よろしいですか？`, ui.ButtonSet.OK_CANCEL);
   if (response !== ui.Button.OK) return;
-
-  const today = new Date();
-  const startDate = new Date();
-  startDate.setDate(today.getDate() - CALC_CONFIG.defaultUpdateDays);
-
-  executeCalculation('通常更新', startDate, today);
+  executeCalculation('90日更新');
 }
 
 function recalculateAllSummary() {
   const ui = SpreadsheetApp.getUi();
-  const response = ui.alert('全期間 在庫サマリ再計算', '全ての期間を対象に在庫を再計算します。データ量によっては時間がかかります。よろしいですか？', ui.ButtonSet.OK_CANCEL);
+  const response = ui.alert('全期間 在庫サマリ再計算', '全てのトランザクションを集約し、在庫サマリを再計算します。よろしいですか？', ui.ButtonSet.OK_CANCEL);
   if (response !== ui.Button.OK) return;
-
-  executeCalculation('全期間再計算', null, new Date());
+  executeCalculation('全期間更新');
 }
 
-function executeCalculation(processName, startDate, endDate) {
+function executeCalculation(processName) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   ss.toast(`処理を開始しました... [${processName}]`, '在庫計算', -1);
   Logger.log(`${processName}を開始します。`);
 
   try {
-    aggregateTransactions(ss);
-    calculateDailySummary(ss, startDate, endDate);
+    aggregateTransactions(ss, processName);
+    calculateAndWriteSummary(ss);
     ss.toast('処理が正常に完了しました。', '在庫計算', 5);
     Logger.log(`${processName}が正常に完了しました。`);
     SpreadsheetApp.getUi().alert(`${processName}が完了しました。`);
@@ -67,15 +62,18 @@ function executeCalculation(processName, startDate, endDate) {
 // 計算ロジック本体
 // ===================================================================================
 
-function aggregateTransactions(ss) {
+function aggregateTransactions(ss, processName) {
   ss.toast('ステップ1/2: トランザクションを集約中...');
-  Logger.log('ステップ1: トランザクションの集約を開始します。');
+  Logger.log(`ステップ1: トランザクションの集約を開始します。モード: ${processName}`);
   const destinationSheet = ss.getSheetByName(CALC_CONFIG.integrationSheetName);
   if (!destinationSheet) throw new Error(`集約シートが見つかりません: ${CALC_CONFIG.integrationSheetName}`);
 
   destinationSheet.getRange(2, 1, destinationSheet.getMaxRows() - 1, destinationSheet.getMaxColumns()).clearContent();
 
   const allTransactions = [];
+  const ninetyDaysAgo = new Date();
+  ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - CALC_CONFIG.defaultUpdateDays);
+
   for (const sheetName in CALC_CONFIG.sourceSheets) {
     const config = CALC_CONFIG.sourceSheets[sheetName];
     const sourceSheet = ss.getSheetByName(sheetName);
@@ -94,13 +92,39 @@ function aggregateTransactions(ss) {
 
     const data = sourceSheet.getRange(2, 1, sourceSheet.getLastRow() - 1, sourceSheet.getLastColumn()).getValues();
     for (const row of data) {
-      if (!row[dateColIdx] || !row[codeColIdx] || row[qtyColIdx] === '') continue;
+      const transactionDate = new Date(row[dateColIdx]);
+      if (!row[dateColIdx] || !row[codeColIdx] || row[qtyColIdx] === '' || isNaN(transactionDate.getTime())) continue;
+
+      if (processName === '90日更新' && transactionDate < ninetyDaysAgo) {
+        continue;
+      }
+
       const expirationDate = expColIdx !== -1 && row[expColIdx] ? new Date(row[expColIdx]) : '';
       allTransactions.push([
-        Utilities.getUuid(), new Date(), new Date(row[dateColIdx]),
+        Utilities.getUuid(), new Date(), transactionDate,
         row[codeColIdx], config.type, Number(row[qtyColIdx]) * config.sign,
-        expirationDate, '', // 賞味期限, 担当者コード (TODO)
+        expirationDate, '',
       ]);
+    }
+  }
+
+  const stocktakeSheet = ss.getSheetByName(CALC_CONFIG.stocktakeSheetName);
+  if (stocktakeSheet && stocktakeSheet.getLastRow() > 1) {
+    const headers = stocktakeSheet.getRange(1, 1, 1, stocktakeSheet.getLastColumn()).getValues()[0];
+    const dateColIdx = headers.indexOf('棚卸日時');
+    const codeColIdx = headers.indexOf('商品コード');
+    const qtyColIdx = headers.indexOf('実在庫数');
+
+    if (dateColIdx !== -1 && codeColIdx !== -1 && qtyColIdx !== -1) {
+      const data = stocktakeSheet.getRange(2, 1, stocktakeSheet.getLastRow() - 1, stocktakeSheet.getLastColumn()).getValues();
+      for (const row of data) {
+        if (!row[dateColIdx] || !row[codeColIdx] || row[qtyColIdx] === '') continue;
+        allTransactions.push([
+          Utilities.getUuid(), new Date(), new Date(row[dateColIdx]),
+          row[codeColIdx], '棚卸', Number(row[qtyColIdx]),
+          '', '',
+        ]);
+      }
     }
   }
 
@@ -112,191 +136,267 @@ function aggregateTransactions(ss) {
   Logger.log('ステップ1: 完了');
 }
 
-function calculateDailySummary(ss, startDate, endDate) {
+function calculateAndWriteSummary(ss) {
   ss.toast('ステップ2/2: 在庫サマリを計算中...');
-  Logger.log(`在庫サマリ計算を開始。期間: ${startDate ? toYMD(startDate) : '最古'} ~ ${toYMD(endDate)}`);
+  Logger.log('ステップ2: 在庫サマリの計算を開始します。');
+
+  const productInfo = getProductInfo(ss.getSheetByName(CALC_CONFIG.productMasterSheetName));
+  const allManagedProductCodes = Object.keys(productInfo);
+  if (allManagedProductCodes.length === 0) {
+    Logger.log('在庫サマリ計算対象の商品が見つかりませんでした。');
+    return;
+  }
+  Logger.log(`在庫サマリ計算対象の商品が ${allManagedProductCodes.length} 件見つかりました。`);
 
   const sheets = {
     integration: ss.getSheetByName(CALC_CONFIG.integrationSheetName),
     summary: ss.getSheetByName(CALC_CONFIG.summarySheetName),
-    productMaster: ss.getSheetByName(CALC_CONFIG.productMasterSheetName),
     stocktake: ss.getSheetByName(CALC_CONFIG.stocktakeSheetName),
   };
   for (const key in sheets) {
     if (!sheets[key]) throw new Error(`シートが見つかりません: ${key}`);
   }
 
-  const managedProductCodes = getManagedProductCodes(sheets.productMaster);
   const transactions = sheets.integration.getLastRow() > 1 ? sheets.integration.getRange(2, 1, sheets.integration.getLastRow() - 1, 8).getValues() : [];
   const stocktakes = sheets.stocktake.getLastRow() > 1 ? sheets.stocktake.getRange(2, 1, sheets.stocktake.getLastRow() - 1, sheets.stocktake.getLastColumn()).getValues() : [];
   const stHeaders = sheets.stocktake.getRange(1, 1, 1, sheets.stocktake.getLastColumn()).getValues()[0];
-  const stDateIdx = stHeaders.indexOf('棚卸日時'), stCodeIdx = stHeaders.indexOf('商品コード'), stQtyIdx = stHeaders.indexOf('実在庫数');
-
-  const { dailyTransactions, firstTransactionDate } = getDailyTransactions(transactions, managedProductCodes);
-  const { dailyStocktakes, firstStocktakeDate } = getDailyStocktakes(stocktakes, managedProductCodes, stDateIdx, stCodeIdx, stQtyIdx);
   
-  const actualStartDate = startDate ? startDate : (firstTransactionDate < firstStocktakeDate ? firstTransactionDate : new Date());
-  const today = endDate;
-  const summaryRows = [];
+  // 1. 全社共通の「基本の起点日」を決定
+  const commonStartDate = getCommonStartDate(stocktakes, stHeaders.indexOf('棚卸日時'));
 
-  const initialStocks = getInitialStocks(startDate, sheets.summary, managedProductCodes);
-  const oldestExpirations = getOldestExpirationDates(managedProductCodes, transactions);
+  // 2. 各商品の起点から今日まですべて計算する
+  const allSummaryRows = calculateDailySummary(
+    new Date(), allManagedProductCodes, transactions, stocktakes, stHeaders, productInfo, commonStartDate
+  );
 
-  for (const code of managedProductCodes) {
-    let currentStock = initialStocks[code] || 0;
-    let loopStartDate = actualStartDate;
-    
-    if (!startDate) {
-      const startPoint = getCalculationStartPoint(code, stocktakes, stDateIdx, stCodeIdx, stQtyIdx, transactions);
-      if (!startPoint || !startPoint.date) continue;
-      loopStartDate = startPoint.date;
-      currentStock = startPoint.qty;
-    }
+  // 3. 表示開始日を「90日前」に設定
+  const displayStartDate = new Date();
+  displayStartDate.setDate(displayStartDate.getDate() - CALC_CONFIG.defaultUpdateDays);
 
-    for (let d = new Date(loopStartDate); d <= today; d.setDate(d.getDate() + 1)) {
-      const dateStr = toYMD(d);
-      const dailyTransQty = dailyTransactions[dateStr]?.[code] || 0;
-      const stocktakeInfo = dailyStocktakes[dateStr]?.[code];
-      let discrepancy = null, finalStock;
+  // 4. 計算結果から表示期間でフィルタリングする
+  const finalRows = allSummaryRows.filter(row => {
+    const rowDate = new Date(row[0]);
+    return toYMD(rowDate) >= toYMD(displayStartDate);
+  });
 
-      if (stocktakeInfo !== undefined) {
-        discrepancy = stocktakeInfo - currentStock;
-        finalStock = stocktakeInfo + dailyTransQty;
-      } else {
-        finalStock = currentStock + dailyTransQty;
-      }
-
-      const oldestExpiration = oldestExpirations[code] || '';
-      let daysToExpire = '';
-      if (oldestExpiration) {
-        const diffTime = new Date(oldestExpiration).getTime() - d.getTime();
-        daysToExpire = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      }
-
-      summaryRows.push([new Date(d), code, finalStock, stocktakeInfo !== undefined ? stocktakeInfo : '', discrepancy !== null ? discrepancy : '', oldestExpiration, daysToExpire]);
-      currentStock = finalStock;
-    }
+  // 5. シートをクリアして書き込む
+  if (sheets.summary.getLastRow() > 1) {
+    sheets.summary.getRange(2, 1, sheets.summary.getMaxRows() - 1, 7).clearContent();
   }
-
-  deleteSummaryRows(sheets.summary, actualStartDate, today);
-  if (summaryRows.length > 0) {
-    sheets.summary.getRange(sheets.summary.getLastRow() + 1, 1, summaryRows.length, 7).setValues(summaryRows);
+  if (finalRows.length > 0) {
+    sheets.summary.getRange(2, 1, finalRows.length, 7).setValues(finalRows);
     sheets.summary.sort(1, true);
   }
 
-  Logger.log('在庫サマリ計算完了');
+  Logger.log('在庫サマリの計算と書き込みが完了しました。');
+}
+
+function calculateDailySummary(endDate, targetProductCodes, transactions, stocktakes, stHeaders, productInfo, commonStartDate) {
+  const managedProductCodes = new Set(targetProductCodes);
+  const allSummaryRows = [];
+
+  const { dailyTransactions } = getDailyTransactions(transactions, managedProductCodes);
+  const stDateIdx = stHeaders.indexOf('棚卸日時');
+  const stCodeIdx = stHeaders.indexOf('商品コード');
+  const stQtyIdx = stHeaders.indexOf('実在庫数');
+  const { dailyStocktakes } = getDailyStocktakes(stocktakes, managedProductCodes, stDateIdx, stCodeIdx, stQtyIdx);
+  
+  const oldestExpirations = getOldestExpirationDates(managedProductCodes, transactions);
+
+  for (const code of managedProductCodes) {
+    const startPoint = getCalculationStartPoint(code, commonStartDate, stocktakes, stDateIdx, stCodeIdx, stQtyIdx, transactions);
+    if (!startPoint) continue;
+
+    let theoreticalStock = 0;
+
+    for (let d = new Date(startPoint.date); d <= endDate; d.setDate(d.getDate() + 1)) {
+      const dateStr = toYMD(d);
+      const transQty = (dailyTransactions[dateStr]?.[code]?.total || 0);
+      const stocktakeInfo = dailyStocktakes[dateStr]?.[code];
+      
+      let discrepancy = null;
+      let closingStock;
+
+      if (toYMD(d) === toYMD(startPoint.date)) {
+        if (startPoint.type === 'stocktake') {
+          discrepancy = null;
+          closingStock = startPoint.qty + transQty;
+        } else { // 'delivery'
+          discrepancy = null;
+          closingStock = 0 + transQty;
+        }
+      } else {
+        if (stocktakeInfo !== undefined) {
+          discrepancy = stocktakeInfo - theoreticalStock;
+          closingStock = stocktakeInfo + transQty;
+        } else {
+          closingStock = theoreticalStock + transQty;
+        }
+      }
+
+      const oldestExpiration = oldestExpirations[code] || '';
+      let daysToSell = '';
+
+      if (oldestExpiration && productInfo[code] && productInfo[code].shelfLife) {
+        const shelfLifeDays = productInfo[code].shelfLife;
+        const expirationDate = new Date(oldestExpiration);
+        
+        const sellByDate = new Date(expirationDate.getTime());
+        sellByDate.setDate(sellByDate.getDate() - Math.floor(shelfLifeDays / 3));
+
+        const diffTime = sellByDate.getTime() - d.getTime();
+        daysToSell = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+      }
+
+      allSummaryRows.push([
+        new Date(d), code, closingStock, 
+        stocktakeInfo !== undefined ? stocktakeInfo : '', 
+        discrepancy !== null ? discrepancy : '', 
+        oldestExpiration, daysToSell
+      ]);
+
+      theoreticalStock = closingStock;
+    }
+  }
+  return allSummaryRows;
 }
 
 // ===================================================================================
 // ヘルパー関数群
 // ===================================================================================
 
-function getManagedProductCodes(sheet) {
-  if (sheet.getLastRow() < 2) return new Set();
-  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
-  const codeIdx = headers.indexOf('商品コード');
-  const mgmtIdx = headers.indexOf('在庫管理対象');
-  if (codeIdx === -1 || mgmtIdx === -1) return new Set();
-  const data = sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn()).getValues();
-  return new Set(data.filter(row => row[mgmtIdx] === true).map(row => row[codeIdx]));
-}
-
-function getDailyTransactions(transactions, codes) {
-  const daily = {};
-  let firstDate = new Date(8640000000000000); // Max date
-  for (const trans of transactions) {
-    const date = new Date(trans[2]), code = trans[3], qty = trans[5];
-    if (!codes.has(code)) continue;
-    if (date < firstDate) firstDate = date;
-    const dateStr = toYMD(date);
-    if (!daily[dateStr]) daily[dateStr] = {};
-    if (!daily[dateStr][code]) daily[dateStr][code] = 0;
-    daily[dateStr][code] += qty;
+function getCommonStartDate(stocktakes, stDateIdx) {
+  if (stDateIdx === -1 || !stocktakes || stocktakes.length === 0) {
+    return null;
   }
-  return { dailyTransactions: daily, firstTransactionDate: firstDate };
-}
+  const uniqueDates = [...new Set(stocktakes.map(row => toYMD(new Date(row[stDateIdx]))).filter(d => d))];
+  uniqueDates.sort((a, b) => b.localeCompare(a)); // YYYY-MM-DD形式の文字列を降順ソート
 
-function getDailyStocktakes(stocktakes, codes, dateIdx, codeIdx, qtyIdx) {
-  const daily = {};
-  let firstDate = new Date(8640000000000000); // Max date
-  for (const st of stocktakes) {
-    const date = new Date(st[dateIdx]);
-    if (isNaN(date.getTime())) continue;
-    if (date < firstDate) firstDate = date;
-    const dateStr = toYMD(date), code = st[codeIdx];
-    if (!codes.has(code)) continue;
-    if (!daily[dateStr]) daily[dateStr] = {};
-    daily[dateStr][code] = st[qtyIdx];
-  }
-  return { dailyStocktakes: daily, firstStocktakeDate: firstDate };
-}
-
-function getInitialStocks(startDate, summarySheet, managedProductCodes) {
-  const initialStocks = {};
-  for (const code of managedProductCodes) initialStocks[code] = 0;
-  if (!startDate || summarySheet.getLastRow() < 2) return initialStocks;
-
-  const summaryData = summarySheet.getRange(2, 1, summarySheet.getLastRow() - 1, summarySheet.getLastColumn()).getValues();
-  const summaryHeaders = summarySheet.getRange(1, 1, 1, summarySheet.getLastColumn()).getValues()[0];
-  const sumDateIdx = summaryHeaders.indexOf('日付'), sumCodeIdx = summaryHeaders.indexOf('商品コード'), sumStockIdx = summaryHeaders.indexOf('理論在庫');
-  if (sumDateIdx === -1 || sumCodeIdx === -1 || sumStockIdx === -1) return initialStocks;
-
-  const targetDateStr = toYMD(new Date(startDate.getTime() - 24 * 60 * 60 * 1000));
-  for (const row of summaryData) {
-    if (toYMD(row[sumDateIdx]) === targetDateStr) {
-      initialStocks[row[sumCodeIdx]] = row[sumStockIdx];
-    }
-  }
-  return initialStocks;
-}
-
-function getCalculationStartPoint(code, stocktakes, stDateIdx, stCodeIdx, stQtyIdx, transactions) {
-  let lastStocktake = null;
-  for (const st of stocktakes) {
-    if (st[stCodeIdx] === code) {
-      const stDate = new Date(st[stDateIdx]);
-      if (!isNaN(stDate.getTime()) && (!lastStocktake || stDate > lastStocktake.date)) {
-        lastStocktake = { date: stDate, qty: st[stQtyIdx] };
-      }
-    }
-  }
-  if (lastStocktake) return lastStocktake;
-
-  for (const trans of transactions) {
-    if (trans[3] === code && trans[4] === '納品') {
-      const firstDeliveryDate = new Date(trans[2]);
-      if (!isNaN(firstDeliveryDate.getTime())) {
-        return { date: firstDeliveryDate, qty: 0 };
-      }
-    }
+  if (uniqueDates.length >= 12) {
+    return new Date(uniqueDates[11]);
   }
   return null;
 }
 
-function getOldestExpirationDates(managedProductCodes, transactions) {
-  const deliveries = {};
-  const recoveries = {};
+function getProductInfo(sheet) {
+  const productInfo = {};
+  if (!sheet || sheet.getLastRow() < 2) return productInfo;
 
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  const codeIdx = headers.indexOf('商品コード');
+  const mgmtIdx = headers.indexOf('在庫管理対象');
+  const shelfLifeIdx = headers.indexOf('賞味日数');
+
+  if (codeIdx === -1 || mgmtIdx === -1 || shelfLifeIdx === -1) {
+    throw new Error('M_商品シートのヘッダー列（商品コード, 在庫管理対象, 賞味日数）が見つかりません。');
+  }
+
+  const data = sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn()).getValues();
+  data.forEach(row => {
+    const code = row[codeIdx];
+    if (code && row[mgmtIdx] === true) {
+      productInfo[code] = { shelfLife: row[shelfLifeIdx] || 0 };
+    }
+  });
+  return productInfo;
+}
+
+function getDailyTransactions(transactions, codes) {
+  const daily = {};
   for (const trans of transactions) {
-    const code = trans[3], type = trans[4], expDateStr = trans[6] ? toYMD(trans[6]) : null;
-    if (!managedProductCodes.has(code) || !expDateStr) continue;
+    const date = new Date(trans[2]);
+    const code = String(trans[3]);
+    const type = trans[4];
+    const qty = trans[5];
 
-    const lotKey = `${code}-${expDateStr}`;
-    if (type === '納品') {
-      if (!deliveries[lotKey]) deliveries[lotKey] = 0;
-      deliveries[lotKey] += trans[5];
-    } else if (type === '回収') {
-      if (!recoveries[lotKey]) recoveries[lotKey] = 0;
-      recoveries[lotKey] += Math.abs(trans[5]);
+    if (!codes.has(code) || isNaN(date.getTime()) || type === '棚卸') continue;
+
+    const dateStr = toYMD(date);
+    if (!dateStr) continue;
+
+    if (!daily[dateStr]) daily[dateStr] = {};
+    if (!daily[dateStr][code]) daily[dateStr][code] = { total: 0 };
+    
+    daily[dateStr][code].total += qty;
+  }
+  return { dailyTransactions: daily };
+}
+
+function getDailyStocktakes(stocktakes, codes, dateIdx, codeIdx, qtyIdx) {
+  const daily = {};
+  if (dateIdx === -1 || codeIdx === -1 || qtyIdx === -1) return { dailyStocktakes: daily };
+  
+  for (const st of stocktakes) {
+    const date = new Date(st[dateIdx]);
+    const code = String(st[codeIdx]);
+    if (!codes.has(code) || isNaN(date.getTime())) continue;
+    
+    const dateStr = toYMD(date);
+    if (!daily[dateStr]) daily[dateStr] = {};
+    daily[dateStr][code] = st[qtyIdx];
+  }
+  return { dailyStocktakes: daily };
+}
+
+function getCalculationStartPoint(code, commonStartDate, stocktakes, stDateIdx, stCodeIdx, stQtyIdx, transactions) {
+  const productStocktakes = [];
+  if (stDateIdx !== -1 && stCodeIdx !== -1 && stQtyIdx !== -1) {
+    for (const st of stocktakes) {
+      if (String(st[stCodeIdx]) === code) {
+        const stDate = new Date(st[stDateIdx]);
+        if (!isNaN(stDate.getTime())) {
+          productStocktakes.push({ date: stDate, qty: st[stQtyIdx] });
+        }
+      }
     }
   }
 
+  if (commonStartDate && productStocktakes.length >= 13) {
+    let qtyOnCommonDate = 0;
+    const commonDateStr = toYMD(commonStartDate);
+    for (const pst of productStocktakes) {
+      if (toYMD(pst.date) === commonDateStr) {
+        qtyOnCommonDate = pst.qty;
+        break;
+      }
+    }
+    return { date: commonStartDate, qty: qtyOnCommonDate, type: 'stocktake' };
+  }
+
+  let firstDelivery = null;
+  for (const trans of transactions) {
+    if (String(trans[3]) === code && trans[4] === '納品') {
+      const deliveryDate = new Date(trans[2]);
+      if (!isNaN(deliveryDate.getTime())) {
+        if (!firstDelivery || deliveryDate < firstDelivery.date) {
+          firstDelivery = { date: deliveryDate, qty: 0, type: 'delivery' };
+        }
+      }
+    }
+  }
+  return firstDelivery;
+}
+
+function getOldestExpirationDates(managedProductCodes, transactions) {
+  const lotInventories = {};
+
+  for (const trans of transactions) {
+    const code = String(trans[3]);
+    const type = trans[4];
+    const qty = trans[5];
+    const expDateStr = trans[6] ? toYMD(new Date(trans[6])) : null;
+
+    if (!managedProductCodes.has(code) || !expDateStr || (type !== '納品' && type !== '回収')) continue;
+    
+    const lotKey = `${code}-${expDateStr}`;
+    if (!lotInventories[lotKey]) lotInventories[lotKey] = 0;
+    lotInventories[lotKey] += qty;
+  }
+
   const remainingLots = {};
-  for (const lotKey in deliveries) {
-    const deliveryQty = deliveries[lotKey];
-    const recoveryQty = recoveries[lotKey] || 0;
-    if ((deliveryQty - recoveryQty) > 0) {
-      const [code, expDateStr] = lotKey.split('-');
+  for (const lotKey in lotInventories) {
+    if (lotInventories[lotKey] > 0) {
+      const [code, expDateStr] = lotKey.split(/-(.*)/s);
       if (!remainingLots[code]) remainingLots[code] = [];
       remainingLots[code].push(new Date(expDateStr));
     }
@@ -310,36 +410,12 @@ function getOldestExpirationDates(managedProductCodes, transactions) {
   return oldestExpirations;
 }
 
-function deleteSummaryRows(sheet, startDate, endDate) {
-  const lastRow = sheet.getLastRow();
-  if (lastRow < 2) return;
-
-  const range = sheet.getRange(2, 1, lastRow - 1, sheet.getLastColumn());
-  const values = range.getValues();
-
-  const start = startDate.getTime();
-  const end = endDate.getTime();
-
-  const keptValues = values.filter(row => {
-    if (!row[0] || isNaN(new Date(row[0]).getTime())) return true; // Keep rows with invalid or no date
-    const rowDate = new Date(row[0]).getTime();
-    return rowDate < start || rowDate > end;
-  });
-
-  range.clearContent();
-
-  if (keptValues.length > 0) {
-    sheet.getRange(2, 1, keptValues.length, keptValues[0].length).setValues(keptValues);
-  }
-}
-
 function toYMD(date) {
   if (!date) return '';
   try {
     const d = new Date(date);
     if (isNaN(d.getTime())) throw new Error(`Invalid date: ${date}`);
-    d.setHours(d.getHours() + 9); // JSTに補正
-    return d.toISOString().slice(0, 10);
+    return Utilities.formatDate(d, 'JST', 'yyyy-MM-dd');
   } catch (e) {
     Logger.log(e.message);
     return '';
