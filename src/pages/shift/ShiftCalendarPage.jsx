@@ -15,8 +15,7 @@ import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import { useUser } from '../../context/UserContext';
-
-const GAS_API_URL = ''; // Placeholder for now
+import { EXTERNAL_SERVICES } from '../../config/externalServices';
 
 const toYYYYMMDD = (date) => {
   const y = date.getFullYear();
@@ -312,3 +311,4 @@ function ShiftCalendarPage() {
 }
 
 export default ShiftCalendarPage;
+
