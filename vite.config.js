@@ -7,9 +7,9 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'https://script.google.com',
+        target: 'http://localhost:8888', // Netlify Functionsのエミュレータのデフォルトポート
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api/, '/macros/s/AKfycbzcm29NtPBqS_kJ5-S0nfJBYsyMGU91WFlwUdU7sDsB-QE-SdnF4HFpVIoh_Ra2CvON/exec'),
+        rewrite: (path) => path.replace(/^\/api/, '/.netlify/functions/gas-proxy'),
       },
     }
   }
