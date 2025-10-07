@@ -3,8 +3,7 @@ import { Grid, Paper, List, ListItem, ListItemButton, ListItemText, CircularProg
 import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-
-
+import { EXTERNAL_SERVICES } from '../config/externalServices';
 
 const ProductHistory = () => {
   const theme = useTheme();
@@ -63,7 +62,7 @@ const ProductHistory = () => {
     const fetchProducts = async () => {
       try {
         setLoadingProducts(true);
-        const response = await fetch(`/.netlify/functions/gas-proxy?type=stock&page=managed_products`);
+        const response = await fetch(`${EXTERNAL_SERVICES.gasApi.v2.url}?type=stock&page=managed_products`);
         const result = await response.json();
         // GASは直接商品リストの配列を返すように修正した
         setProducts(result); // resultは直接配列
@@ -85,7 +84,7 @@ const ProductHistory = () => {
         setLoadingHistory(true);
         setHistory([]);
         const { startDate, endDate } = calculateDateRange(dateRange);
-        let url = `/.netlify/functions/gas-proxy?type=stock&page=inventory_history&productCode=${selectedProduct.productCode}`;
+        let url = `${EXTERNAL_SERVICES.gasApi.v2.url}?type=stock&page=inventory_history&productCode=${selectedProduct.productCode}`;
         if (startDate && endDate) {
           url += `&startDate=${startDate}&endDate=${endDate}`;
         }

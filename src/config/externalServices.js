@@ -21,4 +21,7 @@ export const EXTERNAL_SERVICES = {
       url: '/.netlify/functions/gas-proxy',
     },
   },
+  productApi: {
+    baseUrl: '/api/products',
+  },
 };

@@ -3,6 +3,7 @@ import {
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, CircularProgress, Typography, Alert,
   Box, FormControl, InputLabel, Select, MenuItem, Grid, useTheme, useMediaQuery
 } from '@mui/material';
+import { EXTERNAL_SERVICES } from '../config/externalServices';
 
 const DiscrepancyHistory = () => {
   const [history, setHistory] = useState([]);
@@ -17,7 +18,7 @@ const DiscrepancyHistory = () => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const response = await fetch(`/.netlify/functions/gas-proxy?page=discrepancy_history`);
+        const response = await fetch(`${EXTERNAL_SERVICES.gasApi.v2.url}?page=discrepancy_history`);
         const result = await response.json();
         setHistory(result || []);
       } catch (e) {

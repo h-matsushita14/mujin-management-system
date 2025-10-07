@@ -10,14 +10,12 @@ export const ManualProvider = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const GAS_API_URL = '/.netlify/functions/gas-proxy?type=manuals';
-
   // Function to fetch manuals from GAS API
   const fetchManuals = async () => {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await fetch(GAS_API_URL);
+      const response = await fetch(`${EXTERNAL_SERVICES.gasApi.v2.url}?type=manuals`);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -42,7 +40,7 @@ export const ManualProvider = ({ children }) => {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await fetch(GAS_API_URL, {
+      const response = await fetch(`${EXTERNAL_SERVICES.gasApi.v2.url}?type=manuals`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
@@ -83,7 +81,7 @@ export const ManualProvider = ({ children }) => {
           formData.append('mimeType', file.type);
           formData.append('data', base64Data);
 
-          const response = await fetch(GAS_API_URL, {
+          const response = await fetch(`${EXTERNAL_SERVICES.gasApi.v2.url}?type=manuals`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/x-www-form-urlencoded',

@@ -5,6 +5,7 @@ import {
   DialogActions, DialogContent, DialogTitle, useMediaQuery, useTheme, DialogContentText,
   FormControl, FormLabel, RadioGroup, FormControlLabel, Radio, MenuItem
 } from '@mui/material';
+import { EXTERNAL_SERVICES } from '../config/externalServices';
 
 const ProductSettingsPage = () => {
   const [products, setProducts] = useState([]);
@@ -41,7 +42,7 @@ const ProductSettingsPage = () => {
   const fetchProducts = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await fetch(`/.netlify/functions/gas-proxy?type=productMaster&page=managed_products`);
+      const response = await fetch(EXTERNAL_SERVICES.productApi.baseUrl);
       const result = await response.json();
 
       const formattedProducts = result.map(p => ({
@@ -117,7 +118,7 @@ const ProductSettingsPage = () => {
 
     try {
       const action = products.some(p => p.productCode === currentProduct.productCode) ? 'updateProduct' : 'addProduct';
-      const response = await fetch(`/.netlify/functions/gas-proxy?type=productMaster`, {
+      const response = await fetch(EXTERNAL_SERVICES.productApi.baseUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({ action, ...currentProduct }).toString(),
