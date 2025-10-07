@@ -111,7 +111,7 @@ const InventoryList = () => {
     setUpdateLoading(true);
     setMessage({ type: 'info', text: '在庫データの更新処理を開始しました...' });
     try {
-      const response = await fetch(EXTERNAL_SERVICES.gasApi.stockApp.url, {
+      const response = await fetch(EXTERNAL_SERVICES.gasApi.v2.url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({ action: 'updateToday' }),
