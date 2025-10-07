@@ -4,9 +4,7 @@
   publish = "dist" # The directory where your built React app is located (e.g., 'build' for Create React App)
 
 [build.environment]
-  GAS_MANUALS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbynn3c0bZJ8oRCp7n8nBnnu7LErMMp0-P_WwuJAn3zHnJKxy4c_gGvzneUaChvZtJBn/exec"
-  GAS_STOCK_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwiP4RETq10ZWZie3OWWNXn6dITdmUWJ-KiGi_K9LOTp12C7Ni2erpxtgZMzdD48qE/exec"
-  GAS_PRODUCT_MASTER_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbx7GyQ44FTh-FjrAb_GK0WscWpgR5fIFMHwVMllQB6-ufQY9suiAwVuH4yD2nEHeUrz/exec"
-
+  GAS_V2_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbz_h3_78xJGgVkmgsMcGBcKmkVg3oMYjAZWTosC625xK0B1wbsWLkcaj2GANEIGQHll/exec"
+  
 [functions]
   directory = "netlify/functions" # Directory where your Netlify Functions are located

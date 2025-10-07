@@ -25,9 +25,33 @@ function onOpen() {
 
 function doGet(e) {
   try {
-    // ... (後で実装)
-    return createJsonResponse({ success: true, message: 'GET endpoint is ready.' });
+    const page = e.parameter.page;
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+    switch (page) {
+      case 'managed_products':
+        const productMasterSheetName = 'M_商品';
+        const productSheet = ss.getSheetByName(productMasterSheetName);
+        if (!productSheet) throw new Error(`シートが見つかりません: ${productMasterSheetName}`);
+
+        const productHeaders = productSheet.getRange(1, 1, 1, productSheet.getLastColumn()).getValues()[0];
+        const productData = productSheet.getRange(2, 1, productSheet.getLastRow() - 1, productSheet.getLastColumn()).getValues();
+
+        const products = productData.map(row => {
+          const obj = {};
+          productHeaders.forEach((header, i) => {
+            obj[header] = row[i];
+          });
+          return obj;
+        });
+        return createJsonResponse(products);
+
+      // 他のGETリクエスト（在庫リスト、履歴など）はここにケースを追加
+      default:
+        return createJsonResponse({ success: true, message: 'GET endpoint is ready, but no specific page was requested or implemented.' });
+    }
   } catch (error) {
+    Logger.log(`doGet error: ${error.message}`);
     return createJsonResponse({ success: false, error: error.message });
   }
 }
