@@ -18,8 +18,10 @@ const DiscrepancyHistory = () => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const response = await fetch(`${EXTERNAL_SERVICES.gasApi.v2.url}?page=discrepancy_history`);
+        // 新しいAPIエンドポイントを使用 (仮)
+        const response = await fetch(`${EXTERNAL_SERVICES.inventoryApi.baseUrl}${EXTERNAL_SERVICES.inventoryApi.endpoints.getDiscrepancyHistory}`);
         const result = await response.json();
+        // 新しいAPIのレスポンス形式に合わせてデータを整形 (仮)
         setHistory(result || []);
       } catch (e) {
         setError(e.message);

@@ -62,10 +62,11 @@ const ProductHistory = () => {
     const fetchProducts = async () => {
       try {
         setLoadingProducts(true);
-        const response = await fetch(`${EXTERNAL_SERVICES.gasApi.v2.url}?type=stock&page=managed_products`);
+        // 新しいAPIエンドポイントを使用 (仮)
+        const response = await fetch(`${EXTERNAL_SERVICES.inventoryApi.baseUrl}${EXTERNAL_SERVICES.inventoryApi.endpoints.getManagedProducts}`);
         const result = await response.json();
-        // GASは直接商品リストの配列を返すように修正した
-        setProducts(result); // resultは直接配列
+        // 新しいAPIのレスポンス形式に合わせてデータを整形 (仮)
+        setProducts(result); // resultは直接配列と仮定
       } catch (e) {
         setError(e.message);
       } finally {
@@ -84,14 +85,15 @@ const ProductHistory = () => {
         setLoadingHistory(true);
         setHistory([]);
         const { startDate, endDate } = calculateDateRange(dateRange);
-        let url = `${EXTERNAL_SERVICES.gasApi.v2.url}?type=stock&page=inventory_history&productCode=${selectedProduct.productCode}`;
+        // 新しいAPIエンドポイントを使用 (仮)
+        let url = `${EXTERNAL_SERVICES.inventoryApi.baseUrl}${EXTERNAL_SERVICES.inventoryApi.endpoints.getInventoryHistory}?productCode=${selectedProduct.productCode}`;
         if (startDate && endDate) {
           url += `&startDate=${startDate}&endDate=${endDate}`;
         }
 
         const response = await fetch(url);
         const result = await response.json();
-        // The GAS API for inventory_history returns the array directly, not an object with success/data properties.
+        // 新しいAPIのレスポンス形式に合わせてデータを整形 (仮)
         const transformedHistory = result.map(item => ({
           date: new Date(item['日付']).toLocaleDateString(), // Format date to exclude time
           stock: item['在庫数'] // Assuming '在庫数' is the stock count field from GAS

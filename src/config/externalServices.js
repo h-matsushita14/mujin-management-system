@@ -20,8 +20,22 @@ export const EXTERNAL_SERVICES = {
     v2: {
       url: '/.netlify/functions/gas-proxy',
     },
+    stockApp: { // この定義は新しいAPIに移行後、削除または変更される
+      url: 'https://script.google.com/macros/s/AKfycbz_YOUR_STOCK_APP_ID/exec', // 仮のURL
+    },
   },
   productApi: {
     baseUrl: '/api/products',
   },
+  // 新しい在庫APIのプレースホルダー
+  inventoryApi: {
+    baseUrl: '/api/inventory', // 新しい在庫APIのベースURL (仮)
+    endpoints: {
+      getInventoryList: '/list', // 在庫リスト取得エンドポイント (仮)
+      updateInventory: '/update', // 在庫更新エンドポイント (仮)
+      getManagedProducts: '/products', // 管理対象商品リスト取得エンドポイント (仮)
+      getInventoryHistory: '/history', // 在庫履歴取得エンドポイント (仮)
+      getDiscrepancyHistory: '/discrepancy-history', // 差異履歴取得エンドポイント (仮)
+    }
+  }
 };

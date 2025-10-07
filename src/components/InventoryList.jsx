@@ -44,13 +44,16 @@ const InventoryList = () => {
     }
     setLoading(true);
     try {
-      const url = `${EXTERNAL_SERVICES.gasApi.stockApp.url}&page=inventory_latest&date=${dateStr}`;
+      // 新しいAPIエンドポイントを使用 (仮)
+      const url = `${EXTERNAL_SERVICES.inventoryApi.baseUrl}${EXTERNAL_SERVICES.inventoryApi.endpoints.getInventoryList}?date=${dateStr}`;
       const response = await fetch(url);
       if (!response.ok) throw new Error(`API error! status: ${response.status}`);
       const rawData = await response.json();
 
       if (rawData.error) throw new Error(rawData.error);
 
+      // 新しいAPIのレスポンス形式に合わせてデータを整形 (仮)
+      // 現在のGAS APIのレスポンス形式を想定して、rawData.items をそのまま使用
       const data = { items: rawData.items || [] };
       
       setInventoryCache(prevCache => {
@@ -111,10 +114,11 @@ const InventoryList = () => {
     setUpdateLoading(true);
     setMessage({ type: 'info', text: '在庫データの更新処理を開始しました...' });
     try {
-      const response = await fetch(EXTERNAL_SERVICES.gasApi.v2.url, {
+      // 新しいAPIエンドポイントを使用 (仮)
+      const response = await fetch(`${EXTERNAL_SERVICES.inventoryApi.baseUrl}${EXTERNAL_SERVICES.inventoryApi.endpoints.updateInventory}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({ action: 'updateToday' }),
+        headers: { 'Content-Type': 'application/json' }, // JSON形式で送信
+        body: JSON.stringify({ action: 'updateToday' }), // JSON形式に変換
         mode: 'cors',
       });
       const result = await response.json();
